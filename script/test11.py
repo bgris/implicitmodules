@@ -71,14 +71,15 @@ def my_plot4(Mod0, Mod1, Cot, xst, fig, nx, ny, name, i):
 ##
 # Importing the model
 import pickle
-with open('../data/basi1.pkl', 'rb') as f:
+with open('../data/basi1b.pkl', 'rb') as f:
     img, lx = pickle.load(f)
 
 nlx = np.asarray(lx).astype(np.float64)
 (lmin, lmax) = (np.min(nlx[:,1]),np.max(nlx[:,1]))
 scale = 38./(lmax-lmin)
 
-nlx[:,1]  = 38.0 - scale*(nlx[:,1]-lmin)
+Dy =-30.
+nlx[:,1]  = 38.0 - scale*(nlx[:,1]-lmin) +Dy
 nlx[:,0]  = scale*(nlx[:,0]-np.mean(nlx[:,0]))
 
 # importing the target
@@ -89,18 +90,18 @@ nlxt = np.asarray(lxt).astype(np.float64)
 (lmint, lmaxt) = (np.min(nlxt[:,1]),np.max(nlxt[:,1]))
 scale = 100./(lmaxt-lmint)
 
-nlxt[:,1]  = 100.0 - scale*(nlxt[:,1] - lmint) - 30.
-# nlxt[:,1]  = 100.0 - scale*(nlxt[:,1]-lmint)-10.
+nlxt[:,1]  = 100.0 - scale*(nlxt[:,1] - lmint) -30.
+# nlxt[:,1]  = 100.0 - scale*(nlxt[:,1]-lmint)-10.
 nlxt[:,0]  = scale*(nlxt[:,0]-np.mean(nlxt[:,0]))
 
-(name, coeffs, nu, sig0, sig1, lam_var, sig_var) = ('basi_expf_', [5., 0.05], 0.001, 10., 30., 10., 10.)
+# (name, coeffs, nu, sig0, sig1, lam_var, sig_var) = ('basi_expf_', [5., 0.05], 0.001, 10., 30., 10., 10.)
 # (name, coeffs, nu, sig0, sig1, lam_var, sig_var) = ('basi_expa_', [1., 10.], 0.001, 10., 30. , 10., 10.)
 # (name, coeffs, nu, sig0, sig1, lam_var, sig_var) = ('basi_expb_', [1., 10.], 0.001,
 # 10., 30.,  1., 10.)
 # (name, coeffs, nu, sig0, sig1, lam_var, sig_var) = ('basi_expe_', [5., 0.05], 0.001, 10., 30., 1., 10.)
 # (name, coeffs, nu, sin0, sig1, lam_var, sig_var) = ('basi_expd_', [5., 0.05],0.001, 30., 30., 1., 10.)
-# (name, coeffs, nu, sin0, sig1, lam_var, sig_var) = ('basi_expc_', [1., 0.05],0.001, 300., 30., 10., 30.)
-# (name, coeffs, nu, sig0, sig1, lam_var, sig_var) = ('basi_expf_', [500., 0.05], 0.001, 10., 30., 10., 10.)
+# (name, coeffs, nu, sin0, sig1, lam_var, sig_var) = ('basi_expc_', [1., 0.05],0.001, 300., 30., 10., 30.)
+(name, coeffs, nu, sig0, sig1, lam_var, sig_var) = ('basi_expfb_', [1., 0.05], 0.001, 200., 30., 10., 30.)
 
 x0 = nlx[nlx[:,2]==0,0:2]
 x1 = nlx[nlx[:,2]==1,0:2]
@@ -144,7 +145,7 @@ C[:,1,0] = K*(b*(38. - x1[:,1])**2/2 + a*(38. - x1[:,1]))
 
 L = 38.
 a, b = -2/L**3, 3/L**2
-C[:,1,0] = K*(a*(38. - x1[:,1])**3 + b*(38. - x1[:,1])**2)
+C[:,1,0] = K*(a*(38. - x1[:,1]-Dy)**3 + b*(38. - x1[:,1]-Dy)**2)
 C[:,0,0] = 1.*C[:,1,0]
 
 Mod1['C'] = C
@@ -168,7 +169,7 @@ res= scipy.optimize.minimize(shoot.my_fun, P0,
     args = (X, nX, sig0, sig1, coeff0, coeff1, C, nu, xst, lam_var, sig_var, N),
     method='L-BFGS-B', jac=shoot.my_jac, bounds=None, tol=None, callback=None,
     options={'disp': True, 'maxcor': 10, 'ftol': 1.e-09, 'gtol': 1e-03,
-    'eps': 1e-08, 'maxfun': 100, 'maxiter': 100, 'iprint': -1, 'maxls': 20})
+    'eps': 1e-08, 'maxfun': 100, 'maxiter': 10, 'iprint': -1, 'maxls': 20})
 
 fig = plt.figure(5)
 plt.clf()
