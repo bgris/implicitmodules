@@ -6,7 +6,6 @@ Created on Wed Jan 23 17:31:40 2019
 """
 
 import numpy as np
-import src.data_attachment.varifold as var
 
 import src.Forward.shooting as shoot
 import src.Backward.Backward as bckwd
@@ -43,11 +42,11 @@ def fill_Mod_from_Vector(P, Mod):  # tested
 
 
 def jac(P0, *args):
-    (Mod, xst, lam_var, sig_var, N, eps) = args
+    (Mod, xst, lam_var, N, eps, flag, attach_fun) = args
     fill_Mod_from_Vector(P0, Mod)
     ModTraj = shoot.shooting_traj(Mod, N)
     xsf = ModTraj[-1].ModList[0].GD.GD
-    (varcost, dxvarcost) = var.my_dxvar_cost(xsf, xst, sig_var)
+    (varcost, dxvarcost) = attach_fun(xsf, xst)
     dxvarcost = lam_var * dxvarcost
     
     grad_1 = Mod.GD.copy()
@@ -58,19 +57,21 @@ def jac(P0, *args):
     cgrad = bckwd.backward_shoot_rk2(ModTraj, grad_1, eps)
     
     dP = fill_Vector_from_tancotan(cgrad)
-    n = dP.shape[0]
-    n = int(0.5 * n)
+
+    #n = dP.shape[0]
+    #n = int(0.5 * n)
     # n = np.prod(xst.shape)
-    dP[:n] = 0.
+    dP *= flag
+    #dP[:n] = 0.
     return dP
 
 
 def fun(P0, *args):
-    (Mod, xst, lam_var, sig_var, N, eps) = args
+    (Mod, xst, lam_var, N, eps, flag, attach_fun) = args
     fill_Mod_from_Vector(P0, Mod)
     ModTraj = shoot.shooting_traj(Mod, N)
     xsf = ModTraj[-1].ModList[0].GD.GD
-    (varcost, dxvarcost) = var.my_dxvar_cost(xsf, xst, sig_var)
+    (varcost, dxvarcost) = attach_fun(xsf, xst)
     varcost = lam_var * varcost
     hamval = HamDer.Ham(ModTraj[0])
     
