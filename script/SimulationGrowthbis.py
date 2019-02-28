@@ -41,6 +41,20 @@ plt.plot(target[:,0], target[:,1], 'x')
 x1 = source.copy()
 xs = source.copy()
 
+source_layer = np.reshape(source, [-1, 17, 2])
+up = source_layer[0]
+down = source_layer[-1]
+left = source_layer[1:-1, 0]
+right = source_layer[1:-1, -1]
+xs = np.concatenate([up, down, left, right])
+
+target_layer = np.reshape(target, [-1, 17, 2])
+up = target_layer[0]
+down = target_layer[-1]
+left = target_layer[1:-1, 0]
+right = target_layer[1:-1, -1]
+target_boundary = np.concatenate([up, down, left, right])
+
 
 #%% Initialize GD for module of order 1
 th = 0.2*np.pi
@@ -51,8 +65,8 @@ for  i in range(x1.shape[0]):
 
 dim = 2
 dimCont = 1
-C = np.zeros((x1.shape[0], dim, dimCont))
-C[:,0,0] = 1.5- x1[:,1]
+C = np.ones((x1.shape[0], dim, dimCont))
+#C[:,0,0] = 1.5- x1[:,1]
 
 x00 = np.array([[0., 0.]])
 coeffs = [1., 1.]
@@ -115,7 +129,7 @@ N = 5
 def attach_fun(x,y):
     return np.sum( (x-y)**2 ), 2*(x-y)
     
-args = (Mod_el_opti, target, lam_var, N, 0.001, flag, attach_fun)
+args = (Mod_el_opti, target_boundary, lam_var, N, 0.001, flag, attach_fun)
 
 res = scipy.optimize.minimize(opti.fun, P1,
                               args=args,
@@ -161,6 +175,29 @@ dP = opti.jac(P0, *args)
 #%%
 dP[dim0 : dim0 + dimC]
 
+
+
 #%%
 
+im0 = np.reshape(C_opt[:,0,0], [-1, 17])
+im1 = np.reshape(C_opt[:,1,0], [-1, 17])
+plt.figure()
+plt.imshow(im0)
+plt.colorbar()
+plt.figure()
+plt.imshow(im1)
+plt.colorbar()
 
+
+
+
+x1_i = Modlist_opti_tot[2 * i].GD.GD_list[2].GD[0]
+plt.figure()
+xs_i = Modlist_opti_tot[2 * i].GD.GD_list[0].GD
+xs_ic = xs_i.copy()
+plt.plot(xst_c[:, 0], xst_c[:, 1], 'xk', linewidth=1)
+plt.plot(xs_ic[:, 0], xs_ic[:, 1], 'xr', linewidth=5)
+#    plt.plot(xs_c[:, 0], xs_c[:, 1], '+b', linewidth=1)
+plt.plot(x1_i[:,0], x1_i[:,1], '+r')
+plt.axis('equal')
+plt.show()

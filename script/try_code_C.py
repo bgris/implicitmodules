@@ -59,14 +59,14 @@ C = np.ones((x1.shape[0], dim, dimCont))
 
 
 x00 = np.array([[0., 0.]])
-coeffs = [1., 0.01]
+coeffs = [1., 1.]
 sig00 = 10
 sig1 = 2
 nu = 0.001
 dim = 2
 Sil = defmodsil.SilentLandmark(xs.shape[0], dim)
 Model1 = defmod1C.ElasticOrder1C(sig1, x1.shape[0], dim, coeffs[1], nu, dimCont)
-Model00 = defmod0.ElasticOrderO(sig00, x00.shape[0], dim, 0.1, nu)
+Model00 = defmod0.ElasticOrderO(sig00, x00.shape[0], dim, 1., nu)
 #%%
 
 Mod_el_init = comb_mod.CompoundModules([Sil, Model00, Model1])
@@ -123,10 +123,13 @@ for i in range(C.shape[0]):
             Model1_cop.compute_mom_from_cont_curr()
             Model1_cop.Cost_curr()
             v1_cop = Model1_cop.field_generator_curr()
-            co_init_cop = Model12.p_Ximv_curr(v1_cop,0)
+            #co_init_cop = Model12.p_Ximv_curr(v1_cop,0)
+            co_init_cop = Model12.GD.inner_prod_v(v1_cop)
             der_cost_man[i,j,k] = (co_init_cop - co_init)/eps
 #%%
-print(der_cost - der_cost_man)
+print(der_cost_man[:3].flatten())
+print(der_cost[2][:3].flatten())
+print(der_cost[2][:3].flatten() - der_cost_man[:3].flatten())
 #%%
 def attach_fun(x,y):
     return np.sum( (x-y)**2 ), 2*(x-y)
@@ -167,6 +170,27 @@ jac_init = opti.jac(P0, *args)
 #der_cost = Model1.DerCost_curr().cotan[2]
 #%%
 
+der_cost_man = np.zeros(C.shape)
+eps = 1e-9
+for i in range(5):
+    for j in range(C.shape[1]):
+        for k  in range(C.shape[2]):
+            C_cop = C.copy()
+            C_cop[i,j] += eps
+            param_cop = ((x1, R, C_cop), (p1, PR, pC))
+            param = [param_sil, param_cop]
+            Mod_comb.GD.fill_cot_from_param(param)
+            P0_cop = opti.fill_Vector_from_GD(Mod_comb.GD)
+            co_init_cop = opti.fun(P0_cop, *args)
+            der_cost_man[i,j] = (co_init_cop - co_init)/eps#%%
+#%%
+dim0 = flag_xs.shape[0] +flag_x1.shape[0] +flag_xR.shape[0]
+print(der_cost_man[:5,:].flatten() + dx.GD_list[1].cotan[2][:5,:].flatten())
+print(np.reshape(jac_init[dim0 :dim0 +5*2], [-1, 2]).flatten())
+#print(jac_init[dim0 :dim0 +5*2])
+#print(dx.GD_list[1].cotan[0][:5,:])
+
+#%%
 der_cost_man = np.zeros(x1.shape)
 eps = 1e-9
 for i in range(5):
@@ -184,8 +208,7 @@ for i in range(5):
 dim0 = flag_xs.shape[0]
 print(der_cost_man[:5,:] + dx.GD_list[1].cotan[0][:5,:])
 print(np.reshape(jac_init[dim0 :dim0 +5*2], [-1, 2]))
-#print(jac_init[dim0 :dim0 +5*2])
-#print(dx.GD_list[1].cotan[0][:5,:])
+
 #%%
 import src.Forward.Hamiltonianderivatives as HamDer  
 Mod_comb.GD.fill_cot_from_param(param)
