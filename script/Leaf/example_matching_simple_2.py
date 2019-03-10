@@ -66,23 +66,24 @@ def my_exp(source = 'basi1b.pkl', target = 'basi1t.pkl', name_exp = 'leaf1',
     
     my_plot(xs, "Silent Module", '*b')
     
-    #  Modules of Order 0
-    # sig0 = 15
-    x0 = nlx[nlx[:, 2] == 1, 0:2]
-    Model0 = defmod0.ElasticOrder0(sig0, x0.shape[0], dim, 0.1, nu)
-    p0 = np.zeros(x0.shape)
-    param_0 = (x0, p0)
-    
-    my_plot(x0, "Module order 0", 'or')
     
     #  Modules of Order 0
     # sig00 = 200
     x00 = np.array([[0., 0.]])
-    Model00 = defmod0.ElasticOrder0(sig00, x00.shape[0], dim, 0.01, nu)
+    Model00 = defmod0.ElasticOrder0(sig00, x00.shape[0], dim, coeffs[0], nu)
     p00 = np.zeros([1, 2])
     param_00 = (x00, p00)
     
     my_plot(x00, "Module order 00", '+r')
+    
+    #  Modules of Order 0
+    # sig0 = 15
+    x0 = nlx[nlx[:, 2] == 1, 0:2]
+    Model0 = defmod0.ElasticOrder0(sig0, x0.shape[0], dim, coeffs[1], nu)
+    p0 = np.zeros(x0.shape)
+    param_0 = (x0, p0)
+    
+    my_plot(x0, "Module order 0", 'or')
     
     #  Modules of Order 1
     # sig1 = 30
@@ -93,7 +94,7 @@ def my_exp(source = 'basi1b.pkl', target = 'basi1t.pkl', name_exp = 'leaf1',
     C[:, 1, 0] = (K * (a * (L/2 - x1[:, 1]-Dy) ** 3 
          + b * (L/2 - x1[:, 1]-Dy) ** 2))
     C[:, 0, 0] = 1. * C[:, 1, 0]
-    Model1 = defmod1.ElasticOrder1(sig1, x1.shape[0], dim, 0.01, C, nu)
+    Model1 = defmod1.ElasticOrder1(sig1, x1.shape[0], dim, coeffs[2], C, nu)
     
     th = 0 * np.pi * np.ones(x1.shape[0])
     R = np.asarray([rot.my_R(cth) for cth in th])
@@ -192,7 +193,7 @@ def my_exp(source = 'basi1b.pkl', target = 'basi1t.pkl', name_exp = 'leaf1',
         xs_ic = my_close(xs_i)
         # plt.plot(xs[:,0], xs[:,1], '-b', linewidth=1)
         plt.plot(xst_c[:, 0], xst_c[:, 1], '-k', linewidth=2)
-        plt.plot(xs_ic[:, 0], xs_ic[:, 1], '-g', linewidth=1)
+        plt.plot(xs_ic[:, 0], xs_ic[:, 1], '-g', linewidth=2)
         plt.plot(xs_c[:, 0], xs_c[:, 1], '-b', linewidth=2)
         plt.axis('equal')
         # plt.axis([-10,10,-10,55])
@@ -214,12 +215,25 @@ my_exp(source = 'basi1b.pkl', target = 'basi1t.pkl', name_exp = 'leaf1',
            height_target = 100., sig00 = 200, sig0 = 15, sig1 = 30, 
            coeffs =[0.01, 0.1, 0.01], nu = 0.001, lam_var = 40., sig_var = 30.,
                    N=10, maxiter = 50.)
-
+#%%
 my_exp(source = 'basi1b.pkl', target = 'basi1t.pkl', name_exp = 'leaf2', 
        Dx = 0., Dy = 0., height_source = 38.,
            height_target = 100., sig00 = 200, sig0 = 15, sig1 = 30, 
            coeffs =[0.01, 0.1, 0.01], nu = 0.001, lam_var = 40., sig_var = 30.,
                    N=10, maxiter = 100.)
+
+#%%
+my_exp(source = 'basi1b.pkl', target = 'basi1t.pkl', name_exp = 'leaf3', 
+       Dx = 0., Dy = 0., height_source = 38.,
+           height_target = 100., sig00 = 200, sig0 = 15, sig1 = 30, 
+           coeffs =[0.01, 1, 0.01], nu = 0.001, lam_var = 40., sig_var = 30.,
+                   N=10, maxiter = 50.)
+#%%
+my_exp(source = 'basi1b.pkl', target = 'basi1t.pkl', name_exp = 'leaf4', 
+       Dx = 0., Dy = 0., height_source = 38.,
+           height_target = 100., sig00 = 200, sig0 = 15, sig1 = 30, 
+           coeffs =[0.01, 10, 0.01], nu = 0.001, lam_var = 40., sig_var = 30.,
+                   N=10, maxiter = 50.)
 
 # %% Shooting from controls
 
