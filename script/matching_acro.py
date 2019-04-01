@@ -30,14 +30,18 @@ def my_plot(x, title="", col='*b'):
     plt.axis('equal')
     plt.show()
     
-name_exp = 'acro'
+
+name_exp = 'acro_pure_parametric'
+#name_exp = 'acro_pure_nonparametric'
+#name_exp = 'acro_semi_parametric'
+
 
 flag_show = False
 #  common options
 nu = 0.001
 dim = 2
 N=10
-maxiter = 50
+maxiter = 100
  
 lam_var = 40.
 sig_var = [50., 10.]
@@ -124,7 +128,7 @@ K, L = 10, height_source
 a,b = 1/L, 3.
 z = a*(x1[:,1]-Dy)
 C[:,1,0] = K*((1-b)*z**2+b*z)
-C[:,0,0] = 0.8*C[:,1,0]
+C[:,0,0] = 0.7*C[:,1,0]
 
 Model1 = defmod1.ElasticOrder1(sig1, x1.shape[0], dim, coeffs[2], C, nu)
 
@@ -138,8 +142,19 @@ if(flag_show):
     my_plot(x1, "Module order 1", 'og')
 
 # %% Full model
-Module = comb_mod.CompoundModules([Sil, Model00, Model0, Model1])
-Module.GD.fill_cot_from_param([param_sil, param_00, param_0, param_1])
+
+if name_exp == 'acro_pure_nonparametric':
+    Module = comb_mod.CompoundModules([Sil, Model0])
+    Module.GD.fill_cot_from_param([param_sil, param_0])  
+elif name_exp == 'acro_pure_parametric':
+    Module = comb_mod.CompoundModules([Sil, Model00, Model1])
+    Module.GD.fill_cot_from_param([param_sil, param_00, param_1])
+elif name_exp == 'acro_semi_parametric':
+    Module = comb_mod.CompoundModules([Sil, Model00, Model0, Model1])
+    Module.GD.fill_cot_from_param([param_sil, param_00, param_0, param_1])
+else:
+    print('unknown experiment type')
+
 P0 = opti.fill_Vector_from_GD(Module.GD)
 
 
@@ -174,22 +189,23 @@ Modules_list = shoot.shooting_traj(Module, N)
 # %% Visualisation
 xst_c = my_close(xst)
 xs_c = my_close(xs)
-for i in range(N + 1):
-    plt.figure()
-    xs_i = Modules_list[2 * i].GD.GD_list[0].GD
-    xs_ic = my_close(xs_i)
-    plt.plot(xs_ic[:, 0], xs_ic[:, 1], '-g', linewidth=2)
-
-    x0_i = Modules_list[2 * i].GD.GD_list[1].GD
-    plt.plot(x0_i[:, 0], x0_i[:, 1], '*r', linewidth=2)
-
-    x00_i = Modules_list[2 * i].GD.GD_list[2].GD
-    plt.plot(x00_i[:, 0], x00_i[:, 1], 'or', linewidth=2)
-
-    plt.plot(xst_c[:, 0], xst_c[:, 1], '-k', linewidth=1)
-    plt.plot(xs_c[:, 0], xs_c[:, 1], '-b', linewidth=1)
-    plt.axis('equal')
-    if(flag_show):
+if(flag_show):
+    for i in range(N + 1):
+        plt.figure()
+        xs_i = Modules_list[2 * i].GD.GD_list[0].GD
+        xs_ic = my_close(xs_i)
+        plt.plot(xs_ic[:, 0], xs_ic[:, 1], '-g', linewidth=2)
+    
+        x0_i = Modules_list[2 * i].GD.GD_list[1].GD
+        plt.plot(x0_i[:, 0], x0_i[:, 1], '*r', linewidth=2)
+    
+        x00_i = Modules_list[2 * i].GD.GD_list[2].GD
+        plt.plot(x00_i[:, 0], x00_i[:, 1], 'or', linewidth=2)
+    
+        plt.plot(xst_c[:, 0], xst_c[:, 1], '-k', linewidth=1)
+        plt.plot(xs_c[:, 0], xs_c[:, 1], '-b', linewidth=1)
+        plt.axis('equal')
+        
         plt.show()
 
 # %% With grid
@@ -222,24 +238,24 @@ Modlist_opti_tot_grid = shoot.shooting_traj(Mod_tot, N)
 # %% Plot with grid
 xs_c = my_close(xs)
 xst_c = my_close(xst)
-for i in range(N + 1):
-    plt.figure()
-    xgrid = Modlist_opti_tot_grid[2 * i].GD.GD_list[0].GD
-    xsx = xgrid[:, 0].reshape((nxgrid, nygrid))
-    xsy = xgrid[:, 1].reshape((nxgrid, nygrid))
-    plt.plot(xsx, xsy, color='lightblue')
-    plt.plot(xsx.transpose(), xsy.transpose(), color='lightblue')
-    xs_i = Modlist_opti_tot_grid[2 * i].GD.GD_list[1].GD_list[0].GD
-    xs_ic = my_close(xs_i)
-    # plt.plot(xs[:,0], xs[:,1], '-b', linewidth=1)
-    plt.plot(xst_c[:, 0], xst_c[:, 1], '-k', linewidth=1)
-    plt.plot(xs_ic[:, 0], xs_ic[:, 1], '-g', linewidth=2)
-    plt.plot(xs_c[:, 0], xs_c[:, 1], '-b', linewidth=1)
-    plt.axis('equal')
-    # plt.axis([-10,10,-10,55])
-    # plt.axis([xfigmin, xfigmax, yfigmin, yfigmax])
-    # plt.axis('off')
-    if(flag_show):
+if(flag_show):
+    for i in range(N + 1):
+        plt.figure()
+        xgrid = Modlist_opti_tot_grid[2 * i].GD.GD_list[0].GD
+        xsx = xgrid[:, 0].reshape((nxgrid, nygrid))
+        xsy = xgrid[:, 1].reshape((nxgrid, nygrid))
+        plt.plot(xsx, xsy, color='lightblue')
+        plt.plot(xsx.transpose(), xsy.transpose(), color='lightblue')
+        xs_i = Modlist_opti_tot_grid[2 * i].GD.GD_list[1].GD_list[0].GD
+        xs_ic = my_close(xs_i)
+        # plt.plot(xs[:,0], xs[:,1], '-b', linewidth=1)
+        plt.plot(xst_c[:, 0], xst_c[:, 1], '-k', linewidth=1)
+        plt.plot(xs_ic[:, 0], xs_ic[:, 1], '-g', linewidth=2)
+        plt.plot(xs_c[:, 0], xs_c[:, 1], '-b', linewidth=1)
+        plt.axis('equal')
+        # plt.axis([-10,10,-10,55])
+        # plt.axis([xfigmin, xfigmax, yfigmin, yfigmax])
+        # plt.axis('off')
         plt.show()
     # plt.savefig(path_res + name_exp + '_t_' + str(i) + '.png', format='png', bbox_inches='tight')
 #%% save figure for last time
