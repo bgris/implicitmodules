@@ -61,7 +61,7 @@ plt.show()
 
 
 
-#%%
+#%% Dim Cont = 1
 dim_h = 1
 C = np.zeros((N_x1, dim, dim_h))
 
@@ -72,11 +72,36 @@ for i in range(Nb_layers):
     for j in range(Nb_pts_layer):
         C[i * Nb_pts_layer + j, 0, 0] = 0.
         #print(np.mod(i,Nb_layers) - 0.5*(Nb_layers-1))
-        if i>0.5*(Nb_layers-1):
-            C[i * Nb_pts_layer + j, 1, 0] = 1.
-        else:
-                C[i * Nb_pts_layer + j, 1, 0] = 0.
-        #C[i * Nb_pts_layer + j, 1, 0] = np.cos(N_per * theta[j]) *  (np.mod(i,Nb_layers) - 0.5*(Nb_layers-1))
+#        if i>0.5*(Nb_layers-1):
+#            C[i * Nb_pts_layer + j, 1, 0] = 1.
+#        else:
+#                C[i * Nb_pts_layer + j, 1, 0] = 0.
+        C[i * Nb_pts_layer + j, 1, 0] = np.cos(N_per * theta[j]) *  (np.mod(i,Nb_layers) - 0.5*(Nb_layers-1))
+        
+        
+
+#%% Dim Cont = 2
+dim_h = 2
+C = np.zeros((N_x1, dim, dim_h))
+
+N_per0 = 4
+N_per1 = 8
+ #scipy.interpolate.spline(xk, yk, xnew, order=3, kind='smoothest', conds=None)[source]
+ #z = scipy.interpolate.CubicSpline(xk, yk)
+for i in range(Nb_layers):
+    for j in range(Nb_pts_layer):
+        C[i * Nb_pts_layer + j, 0, 0] = 0.
+        #print(np.mod(i,Nb_layers) - 0.5*(Nb_layers-1))
+#        if i>0.5*(Nb_layers-1):
+#            C[i * Nb_pts_layer + j, 1, 0] = 1.
+#        else:
+#                C[i * Nb_pts_layer + j, 1, 0] = 0.
+        C[i * Nb_pts_layer + j, 1, 0] = np.cos(N_per0 * theta[j]) *  (np.mod(i,Nb_layers) - 0.5*(Nb_layers-1))
+        
+        
+        C[i * Nb_pts_layer + j, 0, 1] = 0.
+        C[i * Nb_pts_layer + j, 1, 1] = np.cos(N_per1 * theta[j]) *  (np.mod(i,Nb_layers) - 0.5*(Nb_layers-1))
+        
         
         
 #%% Plot C
@@ -87,7 +112,7 @@ ax = plt.subplot(111, aspect='equal')
 for i in range(Nb_layers):
     for j in range(Nb_pts_layer):
         indi = Nb_pts_layer * i + j
-        C_i = C[indi] 
+        C_i = C[indi, : , 0]
         ell = Ellipse(xy=Points[indi],
                   width=C_i[0] + epsix, height=C_i[1] + epsiy,
                   angle=np.rad2deg(theta[j]))
@@ -106,7 +131,7 @@ dim = 2
 Model1 = ElasticOrder1(sig1, x1.shape[0], dim, coeffs[0], C, nu)
 
 (p1, PR) = (np.zeros(x1.shape), np.zeros((x1.shape[0], 2, 2)))
-p1[:3] += 200.
+p1[:11] += 200.
 param_1 = ((x1, R), (p1, PR))
 Model1.GD.fill_cot_from_param(param_1)
 #%%
@@ -123,7 +148,7 @@ for k in range(Nb_layers):
     for j in range(Nb_pts_layer):
         indi = Nb_pts_layer * k + j
         angle_kj = np.arctan(R_i[indi][1][0]/R_i[indi][0][0])
-        C_kj = C[indi] 
+        C_kj = C[indi, : , 0] 
         ell = Ellipse(xy=x1_i[indi],
                   width=C_kj[0] + epsix, height=C_kj[1] + epsiy,
                   angle=np.rad2deg(angle_kj))
