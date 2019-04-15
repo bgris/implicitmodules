@@ -25,7 +25,7 @@ name_exp = 'leaf_ba2_ld'
 coeffs = [0.01, 0.01, 100]
 nu = 0.001
 (sig00, sig0, sig1) = (1000., 10., 20.)
-(lam_var, sig_var) = (10., 30.)
+(lam_var, sig_var) = (10., 20.)
 attach_var = (lam_var, sig_var)
 maxiter = 30
 max_fun = 100
@@ -47,12 +47,51 @@ N = 10
 Np = 15
 
 #%%
+# lddmm
+name_exp = 'leaf_ba4_ld'
+coeffs = [0.01, 0.01, 100]
+nu = 0.1
+(sig00, sig0, sig1) = (1000., 10., 20.)
+(lam_var, sig_var) = (10., 20.)
+attach_var = (lam_var, sig_var)
+maxiter = 30
+max_fun = 100
+N = 10
+Np = 15
+
+#%%
+# lddmm
+name_exp = 'leaf_ba5_ld'
+coeffs = [0.01, 0.01, 100]
+nu = 0.1
+(sig00, sig0, sig1) = (1000., 10., 20.)
+(lam_var, sig_var) = (10., 10.)
+attach_var = (lam_var, sig_var)
+maxiter = 30
+max_fun = 100
+N = 10
+Np = 15
+
+#%%
 # parametric
 name_exp = 'leaf_ba2_p'
 coeffs = [0.01, 100, 0.001]
 nu = 0.001
 (sig00, sig0, sig1) = (1000., 15., 30.)
 (lam_var, sig_var) = (10., 30.)
+attach_var = (lam_var, sig_var)
+maxiter = 30
+max_fun = 100
+N = 10
+Np = 15
+
+#%%
+# parametric
+name_exp = 'leaf_ba3_p'
+coeffs = [0.01, 100, 0.001]
+nu = 0.001
+(sig00, sig0, sig1) = (1000., 10., 20.)
+(lam_var, sig_var) = (10., 20.)
 attach_var = (lam_var, sig_var)
 maxiter = 30
 max_fun = 100
