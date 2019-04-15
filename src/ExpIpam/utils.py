@@ -77,10 +77,13 @@ def exp_ipam_init(flag = 'basi',
     
     #  Modules of Order 0
     # sig0 = 15
-    x0 = nlx[nlx[:, 2] == 1, 0:2]
+
+    x0 = np.concatenate((nlx[nlx[:, 2] == 1, 0:2], xs), axis = 0)
     Model0 = defmod0.ElasticOrder0(sig0, x0.shape[0], dim, coeffs[1], nu)
     p0 = np.zeros(x0.shape)
     param_0 = (x0, p0)
+    
+    
     
     #my_plot(x0, "Module order 0", 'or')
     
