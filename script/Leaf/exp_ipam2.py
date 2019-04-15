@@ -21,10 +21,24 @@ dir_Mysh = '/home/trouve/Dropbox/Talks/2019_04_IPAM/tex/Mysh/'
 
 #%%
 # lddmm
-name_exp = 'leaf_ld2_p'
+name_exp = 'leaf_ba2_ld'
 coeffs = [0.01, 0.01, 100]
 nu = 0.001
-(sig00, sig0, sig1) = (1000., 15., 30.)
+(sig00, sig0, sig1) = (1000., 10., 20.)
+(lam_var, sig_var) = (10., 30.)
+attach_var = (lam_var, sig_var)
+maxiter = 30
+max_fun = 100
+N = 10
+Np = 15
+
+
+#%%
+# lddmm
+name_exp = 'leaf_ba3_ld'
+coeffs = [0.01, 0.01, 100]
+nu = 0.1
+(sig00, sig0, sig1) = (1000., 10., 20.)
 (lam_var, sig_var) = (10., 30.)
 attach_var = (lam_var, sig_var)
 maxiter = 30
@@ -76,10 +90,11 @@ from_past = True
 if (from_past):
     with open(filepkl, 'rb') as f:  # Python 3: open(..., 'rb')
      P0, P1, outvar, attach_var, maxiter, max_fun, N = pickle.load(f)
+     P0 = P1.copy()
 else:
     P0 = P1.copy()
          
-P1 = ipam.exp_ipam_optim((P0, outvar), attach_var, maxiter = 1, maxfun = 200, N=10)
+P1 = ipam.exp_ipam_optim((P0, outvar), attach_var, maxiter = 20, maxfun = 200, N=10)
 
 # Save  again the result in case
 filepkl = dir_res + name_exp + ".pkl"
