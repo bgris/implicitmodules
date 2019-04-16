@@ -132,9 +132,10 @@ def exp_ipam_init(flag = 'basi',
     plt.plot(x0[:, 0], x0[:, 1], 'or', linewidth=2, markersize = 3)
     plt.axis('equal')
     plt.axis('off')
-    plt.show()
     plt.savefig(dir_res + name_exp + '_modules_' + flag + '.png', 
                     format='png', bbox_inches='tight')
+    plt.show()
+    
     #my_plot(x1, "Module order 1", 'og')
     
     
