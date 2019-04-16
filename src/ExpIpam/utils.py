@@ -166,7 +166,7 @@ def exp_ipam_optim(invar, attach_var, maxiter = 100, maxfun = 200, N=10):
                                       'ftol': 1.e-09,
                                       'gtol': 1e-03,
                                       'eps': 1e-08,
-                                      'maxfun': 200,
+                                      'maxfun': maxfun,
                                       'maxiter': maxiter,
                                       'iprint': 1,
                                       'maxls': 25
