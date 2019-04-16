@@ -111,6 +111,19 @@ max_fun = 1000
 N = 10
 Np = 15
 
+#%%
+# semi-parametric
+name_exp = 'leaf_ba3_sp'
+coeffs = [0.01, 0.1, 0.001]
+nu = 0.001
+(sig00, sig0, sig1) = (1000., 10., 20.)
+(lam_var, sig_var) = (100., 20.)
+attach_var = (lam_var, sig_var)
+maxiter = 300
+max_fun = 1000
+N = 10
+Np = 15
+
 #%%  Computation
 
 (P0, outvar) = ipam.exp_ipam_init(flag = flag, 
