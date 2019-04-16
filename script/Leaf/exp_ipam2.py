@@ -98,6 +98,19 @@ max_fun = 100
 N = 10
 Np = 15
 
+#%%
+# semi-parametric
+name_exp = 'leaf_ba2_sp'
+coeffs = [0.01, 0.1, 0.001]
+nu = 0.001
+(sig00, sig0, sig1) = (1000., 10., 20.)
+(lam_var, sig_var) = (10., 20.)
+attach_var = (lam_var, sig_var)
+maxiter = 300
+max_fun = 1000
+N = 10
+Np = 15
+
 #%%  Computation
 
 (P0, outvar) = ipam.exp_ipam_init(flag = flag, 
@@ -109,7 +122,7 @@ Np = 15
           # outvar = (Module, xs, xst, opti.fun, opti.jac)
           
 P1 = ipam.exp_ipam_optim((P0, outvar), 
-                         attach_var, maxiter = maxiter, maxfun = 200, N=N)
+                         attach_var, maxiter = maxiter, maxfun = max_fun, N=N)
 
 # Save the result in case
 filepkl = dir_res + name_exp + ".pkl"
@@ -133,7 +146,7 @@ if (from_past):
 else:
     P0 = P1.copy()
          
-P1 = ipam.exp_ipam_optim((P0, outvar), attach_var, maxiter = 20, maxfun = 200, N=10)
+P1 = ipam.exp_ipam_optim((P0, outvar), attach_var, maxiter = 100, maxfun = 200, N=10)
 
 # Save  again the result in case
 filepkl = dir_res + name_exp + ".pkl"
