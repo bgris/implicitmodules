@@ -175,7 +175,7 @@ def my_exp(source = 'basi1b.pkl', target = 'basi1t.pkl', name_exp = 'leaf1',
                                       'ftol': 1.e-09,
                                       'gtol': 1e-03,
                                       'eps': 1e-08,
-                                      'maxfun': 200,
+                                      'maxfun': 1000,
                                       'maxiter': maxiter,
                                       'iprint': 1,
                                       'maxls': 25
@@ -358,10 +358,10 @@ my_exp(source = 'leafbasi.pkl', target = 'leafbasit.pkl', name_exp = 'leaf3',
 
 #%%
 # lddmm
-my_exp(source = 'leafbasi.pkl', target = 'leafbasit.pkl', name_exp = 'leaf_ba1_ld', 
+my_exp(source = 'leafbasi.pkl', target = 'leafbasit.pkl', name_exp = 'leaf_ba6_ld', 
        Dx = 0., Dy = 0., height_source = 38.,
-           height_target = 100., sig00 = 1000, sig0 = 15, sig1 = 30, 
-           coeffs =[0.01, 0.01, 100], nu = 0.001, lam_var = 10., sig_var = 30.,
+           height_target = 100., sig00 = 1000, sig0 = 10, sig1 = 20, 
+           coeffs =[0.01, 0.01, 100], nu = 0.1, lam_var = 10., sig_var = 20.,
            N=10, maxiter = 100)
 #%%
 # parametric
@@ -373,11 +373,11 @@ my_exp(source = 'leafbasi.pkl', target = 'leafbasit.pkl', name_exp = 'leaf_ba1_p
 
 #%%
 # parametric
-my_exp(source = 'leafbasi.pkl', target = 'leafbasit.pkl', name_exp = 'leaf_ba3_p', 
+my_exp(source = 'leafbasi.pkl', target = 'leafbasit.pkl', name_exp = 'leaf_ba4_p', 
        Dx = 0., Dy = 0., height_source = 38.,
-           height_target = 100., sig00 = 1000, sig0 = 15, sig1 = 30, 
-           coeffs =[0.01, 100, 0.001], nu = 0.001, lam_var = 10., sig_var = 30.,
-                   N=10, maxiter = 30.)
+           height_target = 100., sig00 = 1000, sig0 = 10, sig1 = 20, 
+           coeffs =[0.01, 100, 0.001], nu = 0.001, lam_var = 10., sig_var = 20.,
+                   N=10, maxiter = 100.)
 #%%
 # semi- param
 my_exp(source = 'leafbasi.pkl', target = 'leafbasit.pkl', name_exp = 'leaf_ba1_sp', 
@@ -385,6 +385,16 @@ my_exp(source = 'leafbasi.pkl', target = 'leafbasit.pkl', name_exp = 'leaf_ba1_s
            height_target = 100., sig00 = 1000, sig0 = 15, sig1 = 30, 
            coeffs =[0.01, 0.01, 0.001], nu = 0.001, lam_var = 10., sig_var = 30.,
                    N=10, maxiter = 100.)
+
+#%%
+# semi- param
+my_exp(source = 'leafbasi.pkl', target = 'leafbasit.pkl', name_exp = 'leaf_ba2_sp', 
+       Dx = 0., Dy = 0., height_source = 38.,
+           height_target = 100., sig00 = 1000, sig0 = 10, sig1 = 20, 
+           coeffs =[0.01, 0.1, 0.001], nu = 0.001, lam_var = 10., sig_var = 30.,
+                   N=10, maxiter = 300.)
+
+
 #%%
 my_exp(source = 'leafbasi.pkl', target = 'leafbasit.pkl', name_exp = 'leaf3s', 
        Dx = 0., Dy = 0., height_source = 38.,
