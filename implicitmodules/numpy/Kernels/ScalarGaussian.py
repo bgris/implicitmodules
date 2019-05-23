@@ -7,13 +7,14 @@ def my_xmy(x, y):
     return (np.expand_dims(x, axis=1) - np.expand_dims(y, axis=0)).reshape(-1, 2)
 
 
-def my_vker(x, k, sig):  # tested
-    """ Gaussian radial function and its derivatives.
-    vectorized version
-    x is a matrix containing positions
-    k is the order (0 gives the function at locations x, k=1 its
-    first derivatives and k=2 its hessian
-    sig is the gaussian size.
+def my_vker(x, k, sig):
+    """
+    Gaussian radial function and its derivatives. Vectorized version
+    
+    :param:
+        x is a matrix containing positions
+        k is the order (k=0 gives the function at locations x, k=1 its first derivatives and k=2 its hessian)
+        sig is the gaussian size.
     """
     
     x = x / sig

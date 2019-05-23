@@ -1,5 +1,5 @@
 import torch
-# from pykeops.torch import Kernel, kernel_product, Genred
+from pykeops.torch import Kernel, kernel_product, Genred
 # from pykeops.torch.kernel_product.formula import *
 
 
@@ -35,6 +35,7 @@ def K_xy(x, y, sigma):
 
 def gauss_kernel(x, k, sigma):
     if k == 0:
+        # return a tensor of size n x 1
         return (-torch.sum((x/sigma)**2/2, dim=1)).exp()
     if k == 1:
         k_0 = gauss_kernel(x, 0, sigma)
@@ -54,21 +55,20 @@ def gauss_kernel(x, k, sigma):
                 * (torch.transpose(torch.tensordot(x / sigma, torch.eye(2), dims=0), 1, 2)
                    + torch.tensordot(x / sigma, torch.eye(2), dims=0))) / sigma3
 
-# def keops_gauss_kernel(sigma, dtype=torch.float32):
-#     p = torch.tensor([1/sigma/sigma])
-#     def K(x, y, b):
-#         d = 2
-#         formula = 'Exp(-p*SqDist(x, y))*b'
-#         variables = ['x = Vx('+str(d)+')',
-#                      'y = Vy('+str(d)+')',
-#                      'b = Vy('+str(d)+')',
-#                      'p = Pm(1)']
+def keops_gauss_kernel(sigma, dtype=torch.float32):
+    p = torch.tensor([1/sigma/sigma])
+    def K(x, y, b):
+        d = 2
+        formula = 'Exp(-p*SqDist(x, y))'
+        variables = ['x = Vx('+str(d)+')',
+                     'y = Vy('+str(d)+')',
+                     'p = Pm(1)']
 
-#         cuda_type = "float32"
-#         if(dtype is torch.float64):
-#             cuda_type = "float64"
+        cuda_type = "float32"
+        if(dtype is torch.float64):
+            cuda_type = "float64"
 
-#         my_routine = Genred(formula, variables, reduction_op='Sum', axis=1, cuda_type=cuda_type)
-#         return my_routine(x, y, b, p, backend="auto")
-#     return K
+        my_routine = Genred(formula, variables, reduction_op='Sum', axis=1, cuda_type=cuda_type)
+        return my_routine(x, y, b, p, backend="auto")
+    return K
 
