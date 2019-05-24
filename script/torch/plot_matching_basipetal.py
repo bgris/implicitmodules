@@ -10,8 +10,11 @@ import matplotlib.pyplot as plt
 import torch
 
 import implicitmodules.torch as im
+from implicitmodules.numpy.Utilities.Visualisation import my_plot, my_close
 
-torch.set_default_tensor_type(torch.DoubleTensor)
+# torch.set_default_tensor_type(torch.DoubleTensor)
+
+disp = True
 
 ##################################################################################
 # Data
@@ -52,29 +55,30 @@ aabb.squared()
 ##################################################################################
 #  Plots
 
-fig, axs = plt.subplots(2, 2)
-
-axs[0, 0].set_aspect('equal')
-axs[0, 0].axis(aabb.get_list())
-axs[0, 0].set_title('Source')
-axs[0, 0].set_xlabel('x')
-axs[0, 0].set_ylabel('y')
-axs[0, 0].plot(pos_source[:, 0].numpy(), pos_source[:, 1].numpy(), '-')
-axs[0, 0].plot(pos_implicit1[:, 0].numpy(), pos_implicit1[:, 1].numpy(), '.')
-axs[0, 0].plot(pos_implicit0[:, 0].numpy(), pos_implicit0[:, 1].numpy(), 'x')
-
-axs[0, 1].set_aspect('equal')
-axs[0, 1].axis(aabb.get_list())
-axs[0, 1].set_title('Target')
-axs[0, 1].set_xlabel('x')
-axs[0, 1].set_ylabel('y')
-axs[0, 1].plot(pos_target[:, 0].numpy(), pos_target[:, 1].numpy(), '-')
-
-axs[1, 0].imshow(data_source[0])
-
-axs[1, 1].imshow(data_target[0])
-
-plt.show()
+if disp:
+    fig, axs = plt.subplots(2, 2)
+    
+    axs[0, 0].set_aspect('equal')
+    axs[0, 0].axis(aabb.get_list())
+    axs[0, 0].set_title('Source')
+    axs[0, 0].set_xlabel('x')
+    axs[0, 0].set_ylabel('y')
+    axs[0, 0].plot(pos_source[:, 0].numpy(), pos_source[:, 1].numpy(), '-')
+    axs[0, 0].plot(pos_implicit1[:, 0].numpy(), pos_implicit1[:, 1].numpy(), '.')
+    axs[0, 0].plot(pos_implicit0[:, 0].numpy(), pos_implicit0[:, 1].numpy(), 'x')
+    
+    axs[0, 1].set_aspect('equal')
+    axs[0, 1].axis(aabb.get_list())
+    axs[0, 1].set_title('Target')
+    axs[0, 1].set_xlabel('x')
+    axs[0, 1].set_ylabel('y')
+    axs[0, 1].plot(pos_target[:, 0].numpy(), pos_target[:, 1].numpy(), '-')
+    
+    axs[1, 0].imshow(data_source[0])
+    
+    axs[1, 1].imshow(data_target[0])
+    
+    plt.show()
 
 #############################################################################
 # Setting up the modules
@@ -84,12 +88,13 @@ plt.show()
 ##############################################################################
 # Local translation module
 sigma0 = 15.
-nu0 = 0.001
+nu0 = 0.1
 coeff0 = 100.
 implicit0 = im.DeformationModules.ImplicitModule0(
     im.Manifolds.Landmarks(2, pos_implicit0.shape[0], gd=pos_implicit0.view(-1).requires_grad_()), sigma0, nu0, coeff0)
 
-im.Utilities.my_plot(pos_implicit0.detach().numpy(), title="Silent Module", col='*b')
+if disp:
+    my_plot(pos_implicit0.detach().numpy(), title="Silent Module", col='*b')
 
 ###############################################################################
 # Global translation module
@@ -99,7 +104,8 @@ coeff00 = 0.01
 implicit00 = im.DeformationModules.ImplicitModule0(
     im.Manifolds.Landmarks(2, 1, gd=torch.tensor([0., 0.], requires_grad=True)), sigma00, nu00, coeff00)
 
-im.Utilities.my_plot(torch.tensor([[0., 0.]]).detach().numpy(), title="Silent Module", col='+r')
+if disp:
+    my_plot(torch.tensor([[0., 0.]]).detach().numpy(), title="Silent Module", col='+r')
 
 ###############################################################################
 # Elastic modules
@@ -124,7 +130,8 @@ implicit1 = im.DeformationModules.ImplicitModule1(
     coeff1
 )
 
-my_plot(pos_implicit1.detach().numpy(), ellipse=C.detach().numpy(), title="Module order 1", col='og')
+if disp:
+    my_plot(pos_implicit1.detach().numpy(), ellipse=C.detach().numpy(), title="Module order 1", col='og')
 
 #############################################################################
 # Model fit
@@ -137,7 +144,7 @@ model = im.Models.ModelCompoundWithPointsRegistration(
     (pos_source, torch.ones(pos_source.shape[0])),
     [implicit0, implicit00, implicit1],
     [True, True, True],
-    im.attachement.VarifoldAttachement([10., 50.])
+    im.Attachment.VarifoldAttachement([10., 50.])
 )
 
 costs = model.fit((pos_target, torch.ones(pos_target.shape[0])), max_iter=40, l=1., lr=5e-1, log_interval=1)
@@ -146,42 +153,44 @@ costs = model.fit((pos_target, torch.ones(pos_target.shape[0])), max_iter=40, l=
 # Results
 # -------
 
-fig, axs = plt.subplots(1, 3)
-
-axs[0].set_aspect('equal')
-axs[0].axis(aabb.get_list())
-axs[0].set_title('Source')
-axs[0].plot(pos_source[:, 0].numpy(), pos_source[:, 1].numpy(), 'b-')
-axs[0].plot(pos_implicit1[:, 0].numpy(), pos_implicit1[:, 1].numpy(), 'og')
-axs[0].plot(pos_implicit0[:, 0].numpy(), pos_implicit0[:, 1].numpy(), 'or')
-
-axs[1].set_aspect('equal')
-axs[1].axis(aabb.get_list())
-axs[1].set_title('Deformed source')
-out = im.Utilities.my_close(model.shot_manifold[0].gd.view(-1, 2).detach().numpy())
-shot_implicit0 = model.shot_manifold[1].gd.view(-1, 2).detach().numpy()
-shot_implicit00 = model.shot_manifold[2].gd.view(-1, 2).detach().numpy()
-shot_implicit1 = model.shot_manifold[3].gd[0].view(-1, 2).detach().numpy()
-axs[1].plot(out[:, 0], out[:, 1], 'g-')
-axs[1].plot(shot_implicit0[:, 0], shot_implicit0[:, 1], 'or')
-axs[1].plot(shot_implicit00[:, 0], shot_implicit00[:, 1], '+r')
-axs[1].plot(shot_implicit1[:, 0], shot_implicit1[:, 1], 'og')
-
-axs[2].set_aspect('equal')
-axs[2].axis(aabb.get_list())
-axs[2].set_title('Source and Target')
-axs[2].plot(im.Utilities.my_close(pos_target.numpy())[:, 0], my_close(pos_target.numpy())[:, 1], 'k-')
-axs[2].plot(out[:, 0], out[:, 1], 'b-')
-
-fig.tight_layout()
-
-plt.show()
+if disp:
+    fig, axs = plt.subplots(1, 3)
+    
+    axs[0].set_aspect('equal')
+    axs[0].axis(aabb.get_list())
+    axs[0].set_title('Source')
+    axs[0].plot(pos_source[:, 0].numpy(), pos_source[:, 1].numpy(), 'b-')
+    axs[0].plot(pos_implicit1[:, 0].numpy(), pos_implicit1[:, 1].numpy(), 'og')
+    axs[0].plot(pos_implicit0[:, 0].numpy(), pos_implicit0[:, 1].numpy(), 'or')
+    
+    axs[1].set_aspect('equal')
+    axs[1].axis(aabb.get_list())
+    axs[1].set_title('Deformed source')
+    out = my_close(model.shot_manifold[0].gd.view(-1, 2).detach().numpy())
+    shot_implicit0 = model.shot_manifold[1].gd.view(-1, 2).detach().numpy()
+    shot_implicit00 = model.shot_manifold[2].gd.view(-1, 2).detach().numpy()
+    shot_implicit1 = model.shot_manifold[3].gd[0].view(-1, 2).detach().numpy()
+    axs[1].plot(out[:, 0], out[:, 1], 'g-')
+    axs[1].plot(shot_implicit0[:, 0], shot_implicit0[:, 1], 'or')
+    axs[1].plot(shot_implicit00[:, 0], shot_implicit00[:, 1], '+r')
+    axs[1].plot(shot_implicit1[:, 0], shot_implicit1[:, 1], 'og')
+    
+    axs[2].set_aspect('equal')
+    axs[2].axis(aabb.get_list())
+    axs[2].set_title('Source and Target')
+    axs[2].plot(my_close(pos_target.numpy())[:, 0], my_close(pos_target.numpy())[:, 1], 'k-')
+    axs[2].plot(out[:, 0], out[:, 1], 'b-')
+    
+    fig.tight_layout()
+    
+    plt.show()
 
 #############################################################################
 # Evolution of the cost with iterations
 
-plt.title("Cost")
-plt.xlabel("Iteration(s)")
-plt.ylabel("Cost")
-plt.plot(range(len(costs)), costs)
-plt.show()
+if disp:
+    plt.title("Cost")
+    plt.xlabel("Iteration(s)")
+    plt.ylabel("Cost")
+    plt.plot(range(len(costs)), costs)
+    plt.show()

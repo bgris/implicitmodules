@@ -68,11 +68,32 @@ class ImplicitModule0(DeformationModule):
 
     def compute_geodesic_control(self, man):
         r"""Computes geodesic control from \delta \in H^\ast."""
+
         vs = self.adjoint(man)
         K_q = K_xx(self.manifold.gd.view(-1, self.__manifold.dim), self.__sigma) + self.__nu * torch.eye(
             self.__manifold.nb_pts)
         controls, _ = torch.solve(vs(self.manifold.gd.view(-1, self.manifold.dim)), K_q)
         self.__controls = controls.contiguous().view(-1) / self.__coeff
+
+        #
+        from pykeops.torch import KernelSolve
+        formula = 'Exp(-p * SqDist(x, y)) * b'
+        aliases = ['x = Vi(' + str(self.__manifold.dim) + ')',
+                   'y = Vj(' + str(self.__manifold.dim) + ')',
+                   'b = Vj(' + str(self.__manifold.dim) + ')',
+                   'p = Pm(1)']
+        Kinv = KernelSolve(formula, aliases, "b", axis=1)
+        x = self.manifold.gd.view(-1, self.__manifold.dim)
+        b = vs(self.manifold.gd.view(-1, self.manifold.dim))
+        g = torch.tensor([.5 / self.sigma / self.sigma])
+
+        c = Kinv(x, x, b, g, alpha=self.__nu).view(-1) / self.__coeff
+
+        print(torch.allclose(c, d, atol=1e-6, rtol=1e-4))
+
+        if not torch.allclose(c, d, atol=1e-6, rtol=1e-4):
+            raise RuntimeError('ElasticOrder0 module [KeOps] KernelSolve bad conditionned')
+        
 
     def field_generator(self):
         return StructuredField_0(self.__manifold.gd.view(-1, self.__manifold.dim),

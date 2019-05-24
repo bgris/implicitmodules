@@ -14,10 +14,18 @@ class StructuredField_m(SupportStructuredField):
         return self.__sigma
     
     def __call__(self, points, k=0):
-        print(k)
         P = (self.moments - torch.transpose(self.moments, 1, 2)) / 2
         ker_vec = -gauss_kernel(rel_differences(points, self.support), k + 1, self.__sigma)
         ker_vec = ker_vec.reshape((points.shape[0], self.support.shape[0]) + tuple(ker_vec.shape[1:]))
-        return torch.tensordot(torch.transpose(torch.tensordot(torch.eye(2), ker_vec, dims=0), 0, 2),
-                               P,
-                               dims=([2, 3, 4], [1, 0, 2]))
+    
+        #  res = torch.tensordot(torch.transpose(torch.tensordot(torch.eye(2), ker_vec, dims=0), 0, 2),
+        #                        P,
+        #                        dims=([2, 3, 4], [1, 0, 2]))
+    
+        res = torch.transpose(torch.tensordot(
+            torch.tensordot(torch.eye(2), ker_vec, dims=0),
+            P,
+            dims=([0, 3, 4], [1, 0, 2])),
+            0, 1)
+    
+        return res
