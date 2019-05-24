@@ -18,11 +18,18 @@ class ImplicitModule0(DeformationModule):
         self.__coeff = coeff
         self.__dim_controls = self.__manifold.dim * self.__manifold.nb_pts
         self.__controls = torch.zeros(self.__dim_controls)
+        self.__device = None
 
     @classmethod
     def build_from_points(cls, dim, nb_pts, sigma, nu, coeff=1., gd=None, tan=None, cotan=None):
         """Builds the Translations deformation module from tensors."""
         return cls(Landmarks(dim, nb_pts, gd=gd, tan=tan, cotan=cotan), sigma, nu, coeff)
+
+    def move_to(self, device):
+        self.__device = device
+        self.__manifold.move_to(device)
+
+        self.__controls = self.__controls.to(device)
 
     @property
     def manifold(self):
@@ -63,7 +70,7 @@ class ImplicitModule0(DeformationModule):
     def cost(self):
         """Returns the cost."""
         K_q = K_xx(self.manifold.gd.view(-1, self.__manifold.dim), self.__sigma)
-        m = torch.mm(K_q + self.__nu * torch.eye(self.__manifold.nb_pts), self.__controls.view(-1, self.__manifold.dim))
+        m = torch.mm(K_q + self.__nu * torch.eye(self.__manifold.nb_pts, device=self.__device), self.__controls.view(-1, self.__manifold.dim))
         return 0.5 * self.__coeff * torch.dot(m.view(-1), self.__controls.view(-1))
 
     def compute_geodesic_control(self, man):

@@ -43,8 +43,7 @@ def gauss_kernel(x, k, sigma):
     if k == 2:
         sigma2 = sigma * sigma
         k_0 = gauss_kernel(x, 0, sigma)
-        return (k_0.view(-1, 1, 1).repeat(1, 2, 2) * (-torch.eye(2).repeat(x.shape[0], 1, 1)
-                                                      + torch.einsum('ki, kj->kij', x, x) / sigma2)) / sigma2
+        return (k_0.view(-1, 1, 1).repeat(1, 2, 2) * (-torch.eye(2, device=x.device).repeat(x.shape[0], 1, 1) + torch.einsum('ki, kj->kij', x, x) / sigma2)) / sigma2
     if k == 3:
         sigma2 = sigma * sigma
         sigma3 = sigma * sigma * sigma

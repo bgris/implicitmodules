@@ -12,6 +12,10 @@ class CompoundModule(DeformationModule, Iterable):
         assert isinstance(module_list, Iterable)
         super().__init__()
         self.__module_list = [*module_list]
+
+    def move_to(self, device):
+        for m in self.__module_list:
+            m.move_to(device)
     
     @property
     def module_list(self):

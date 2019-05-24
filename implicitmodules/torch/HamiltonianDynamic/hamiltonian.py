@@ -7,7 +7,7 @@ class Hamiltonian:
     def __init__(self, modules):
         assert isinstance(modules, Iterable) or isinstance(modules, CompoundModule)
         super().__init__()
-        if isinstance(modules, Iterable):
+        if isinstance(modules, Iterable) and not isinstance(modules, CompoundModule):
             self.__module = CompoundModule(modules)
         else:
             self.__module = modules

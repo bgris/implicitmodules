@@ -32,6 +32,11 @@ class Landmarks(Manifold):
         out.fill(self, copy=True)
         return out
 
+    def move_to(self, device):
+        self.__gd = self.__gd.to(device)
+        self.__tan = self.__tan.to(device)
+        self.__cotan = self.__cotan.to(device)
+
     @property
     def nb_pts(self):
         return self.__nb_pts

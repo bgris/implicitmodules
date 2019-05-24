@@ -21,6 +21,11 @@ class Translations(DeformationModule):
     def build_from_points(cls, dim, nb_pts, sigma, gd=None, tan=None, cotan=None):
         """Builds the Translations deformation module from tensors."""
         return cls(Landmarks(dim, nb_pts, gd=gd, tan=tan, cotan=cotan), sigma)
+
+    def move_to(self, device):
+        self.__manifold.move_to(device)
+
+        self.__controls = self.__controls.to(device)
     
     @property
     def manifold(self):

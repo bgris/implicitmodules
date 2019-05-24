@@ -16,6 +16,10 @@ class CompoundManifold(Manifold):
         manifold_list = [m.copy() for m in self.__manifold_list]
         return CompoundManifold(manifold_list)
 
+    def move_to(self, device):
+        for m in self.__manifold_list:
+            m.move_to(device)
+
     @property
     def manifold_list(self):
         return self.__manifold_list
