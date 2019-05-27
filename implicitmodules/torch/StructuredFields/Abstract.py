@@ -21,6 +21,7 @@ class SupportStructuredField(StructuredField):
         return self.__moments
 
 
+# TODO: change to SumStructuredField
 class CompoundStructuredField(StructuredField):
     def __init__(self, fields):
         super().__init__()

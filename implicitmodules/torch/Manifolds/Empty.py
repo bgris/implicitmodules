@@ -11,7 +11,7 @@ class EmptyManifold(Manifold):
     def copy(self):
         return EmptyManifold()
 
-    def to(self, device):
+    def move_to(self, device):
         pass
 
     @property

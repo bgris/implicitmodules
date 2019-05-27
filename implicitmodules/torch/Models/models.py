@@ -14,6 +14,9 @@ class Model():
     def __init__(self, attachement):
         self.__attachement = attachement
 
+    def move_to(self, device):
+        pass
+
     @property
     def attachement(self):
         return self.__attachement
@@ -40,11 +43,13 @@ class Model():
             optimizer.zero_grad()
             if self.precompute_cb is not None:
                 self.precompute_cb(self.parameters)
+
             self.compute(transformed_target)
             attach = l*self.attach
             cost = attach + self.deformation_cost
             if(self.nit%log_interval == 0):
-                print("It: %d, deformation cost: %.6f, attach: %.6f. Total cost: %.6f" % (self.nit, self.deformation_cost.detach().numpy(), attach.detach().numpy(), cost.detach().numpy()))
+                with torch.autograd.no_grad():
+                    print("It: %d, deformation cost: %.6f, attach: %.6f. Total cost: %.6f" % (self.nit, self.deformation_cost.detach().to('cpu').numpy(), attach.detach().to('cpu').numpy(), cost.detach().to('cpu').numpy()))
 
             costs.append(cost.item())
 
@@ -84,6 +89,29 @@ class ModelCompound(Model):
 
         self.__parameters.extend(parameters)
 
+    def move_to(self, device):
+        super().move_to(device)
+        self.__device = device
+
+        for m in self.__init_manifold:
+            m.move_to(device)
+
+        for m in self.__modules:
+            m.move_to(device)
+
+        # Since me did some copies, we need to create the parameters list from scratch
+        self.__parameters = []
+        with torch.autograd.no_grad():
+            for i in range(len(self.__modules)):
+                self.__parameters.extend(self.__init_manifold[i].unroll_cotan())
+                if(not self.__fixed[i]):
+                    self.__parameters.extend(self.__init_manifold[i].unroll_gd())
+
+            for i in range(len(self.__init_parameters)):
+                self.__init_parameters[i] = self.__init_parameters[i].to(device).requires_grad_()
+
+        self.__parameters.extend(self.__init_parameters)
+
     @property
     def modules(self):
         return self.__modules
@@ -110,8 +138,8 @@ class ModelCompound(Model):
 
     def compute_deformation_grid(self, grid_origin, grid_size, grid_resolution, it=2, intermediate=False):
         x, y = torch.meshgrid([
-            torch.linspace(grid_origin[0], grid_origin[0]+grid_size[0], grid_resolution[0]),
-            torch.linspace(grid_origin[1], grid_origin[1]+grid_size[1], grid_resolution[1])])
+            torch.linspace(grid_origin[0], grid_origin[0]+grid_size[0], grid_resolution[0], device=self.__device),
+            torch.linspace(grid_origin[1], grid_origin[1]+grid_size[1], grid_resolution[1], device=self.__device)])
 
         gridpos = grid2vec(x, y)
 
@@ -143,6 +171,14 @@ class ModelCompoundWithPointsRegistration(ModelCompound):
             fixed.insert(0, True)
 
         super().__init__(module_list, fixed, attachement, parameters=parameters)
+
+    def move_to(self, device):
+        super().move_to(device)
+        if self.__compound_fit:
+            for i in range(len(self.alpha)):
+                self.alpha[i] = self.alpha[i].to(device)
+        else:
+            self.alpha = self.alpha.to(device)
 
     def compute(self, target):
         compound = CompoundModule(self.modules)

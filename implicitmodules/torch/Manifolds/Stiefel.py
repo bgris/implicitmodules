@@ -50,9 +50,14 @@ class Stiefel(Manifold):
         return out
 
     def move_to(self, device):
-        self.__gd = (self.__gd[0].to(device), self.__gd[1].to(device))
-        self.__tan = (self.__tan[0].to(device), self.__tan[1].to(device))
-        self.__cotan = (self.__cotan[0].to(device), self.__cotan[1].to(device))
+        with torch.autograd.no_grad():
+            self.__gd = (self.__gd[0].to(device).requires_grad_(),
+                         self.__gd[1].to(device).requires_grad_())
+            self.__tan = (self.__tan[0].to(device).requires_grad_(),
+                          self.__tan[1].to(device).requires_grad_())
+            self.__cotan = (self.__cotan[0].to(device).requires_grad_(),
+                            self.__cotan[1].to(device).requires_grad_())
+
     @property
     def nb_pts(self):
         return self.__nb_pts

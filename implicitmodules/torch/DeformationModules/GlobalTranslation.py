@@ -10,6 +10,12 @@ class GlobalTranslation(DeformationModule):
     def __init__(self, dim, coeff=1.):
         self.__controls = torch.zeros(dim)
         self.__coeff = coeff
+        self.__device = None
+
+    def move_to(self, device):
+        self.__device = device
+
+        self.__controls = self.__controls.to(device)
 
     @property
     def dim_controls(self):
@@ -46,7 +52,7 @@ class GlobalTranslation(DeformationModule):
         """Computes geodesic control from StructuredField vs."""
         geodesic_controls = torch.zeros_like(self.__controls)
         for i in range(self.__controls.shape[0]):
-            cont_i = torch.zeros_like(self.__controls)
+            cont_i = torch.zeros_like(self.__controls, device=self.__device)
             cont_i[i] = 1.
             v_i = ConstantField(cont_i)
             geodesic_controls[i] = man.inner_prod_field(v_i) / self.__coeff

@@ -33,9 +33,10 @@ class Landmarks(Manifold):
         return out
 
     def move_to(self, device):
-        self.__gd = self.__gd.to(device)
-        self.__tan = self.__tan.to(device)
-        self.__cotan = self.__cotan.to(device)
+        with torch.autograd.no_grad():
+            self.__gd = self.__gd.to(device).requires_grad_()
+            self.__tan = self.__tan.to(device).requires_grad_()
+            self.__cotan = self.__cotan.to(device).requires_grad_()
 
     @property
     def nb_pts(self):
