@@ -184,7 +184,7 @@ class ModelCompoundWithPointsRegistration(ModelCompound):
         compound = CompoundModule(self.modules)
         compound.manifold.fill(self.init_manifold)
         h = Hamiltonian(compound)
-        shoot(h, 10, "torch_euler")
+        shoot(h, 10, 'euler')
         self.shot_manifold = compound.manifold.copy()
         self.deformation_cost = compound.cost()
 
