@@ -18,7 +18,7 @@ class ModelFittingScipy(ModelFitting):
     def reset(selt):
         pass
 
-    def fit(self, target, max_iter, method='BFGS', options={}):
+    def fit(self, target, max_iter, method='L-BFGS-B', options={}):
         last_costs = {}
         costs = []
 
@@ -73,8 +73,8 @@ class ModelFittingScipy(ModelFitting):
         print("Final energy =", last_costs['cost'])
         print("Closure evaluations =", res['nfev'])
         print("Time elapsed =", time.time() - start)
-        print("Jacobian min max = ", np.min(res.jac), np.max(res.jac))
-        print("Hessian condition number =", np.linalg.cond(res.hess_inv))
+        #print("Jacobian min max = ", np.min(res.jac), np.max(res.jac))
+        #print("Hessian condition number =", np.linalg.cond(res.hess_inv))
 
         return costs
 

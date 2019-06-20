@@ -81,8 +81,10 @@ class Model():
 
 
 class Model:
-    def __init__(self, modules, attachement, fit_moments, precompute_callback, other_parameters):
+    def __init__(self, modules, fixed, attachement, fit_moments, precompute_callback, other_parameters):
         self.__modules = modules
+        self.__fixed = fixed
+
         self.__attachement = attachement
         self.__precompute_callback = precompute_callback
         self.__fit_moments = fit_moments
@@ -105,6 +107,11 @@ class Model:
     @property
     def attachement(self):
         return self.__attachement
+
+    @property
+    def fixed(self):
+        return self.__fixed
+
 
     @property
     def precompute_callback(self):
@@ -136,6 +143,10 @@ class Model:
         if self.__fit_moments:
             for i in range(len(self.__modules)):
                 self.__parameters.extend(self.__init_manifold[i].unroll_cotan())
+                if(not self.__fixed[i]):
+                    self.__parameters.extend(self.__init_manifold[i].unroll_gd())
+
+                
 
         self.__parameters.extend(self.__init_other_parameters)
 
@@ -160,7 +171,7 @@ class ModelPointsRegistration(Model):
     """
     TODO: add documentation
     """
-    def __init__(self, source, modules, attachement, fit_moments=True, precompute_callback=None, other_parameters=[]):
+    def __init__(self, source, modules, fixed, attachement, fit_moments=True, precompute_callback=None, other_parameters=[]):
         assert isinstance(source, Iterable) and not isinstance(source, torch.Tensor)
         
         # We first determinate the number of sources
@@ -173,12 +184,14 @@ class ModelPointsRegistration(Model):
                 # Weights are provided
                 self.weights.insert(i, source[i][1])
                 modules.insert(i, SilentLandmarks(Landmarks(2, source[i][0].shape[0], gd=source[i][0].view(-1).requires_grad_())))
+                fixed.insert(i, True)
             elif isinstance(source[i], torch.Tensor):
                 # No weights provided
                 self.weights.insert(i, None)
                 modules.insert(i, SilentLandmarks(Landmarks(2, source[i].shape[0], gd=source[i].view(-1).requires_grad_())))
+                fixed.insert(0, True)
 
-        super().__init__(modules, attachement, fit_moments, precompute_callback, other_parameters)
+        super().__init__(modules, fixed, attachement, fit_moments, precompute_callback, other_parameters)
 
     def compute(self, target):
         """ Does shooting. Outputs compute deformation and attach cost. """

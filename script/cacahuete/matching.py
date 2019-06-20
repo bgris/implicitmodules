@@ -80,7 +80,7 @@ implicit0 = im.DeformationModules.ImplicitModule0(
     im.Manifolds.Landmarks(2, pts_source.shape[0], gd=torch.tensor(pts_source, requires_grad=True).view(-1)), sigma0, nu0, coeff0)
 
 
-sigma1 = 0.2
+sigma1 = 0.1
 nu1 = 0.001
 coeff1 = 10.
 implicit1 = im.DeformationModules.ImplicitModule0(
@@ -89,16 +89,16 @@ implicit1 = im.DeformationModules.ImplicitModule0(
 
 
 #%%
-model_param = im.Models.ModelCompoundWithPointsRegistration(
-    [[source, torch.ones(source.shape[0], requires_grad=True)]],
+model_param = im.Models.ModelPointsRegistration(
+    [source],
     [scaling0, scaling1, implicit00, implicit0],
     [False, False, True, True],
     [attach.VarifoldAttachement([1, 0.2])]
 )
 
 
-model_lddmm = im.Models.ModelCompoundWithPointsRegistration(
-    [[source, torch.ones(source.shape[0], requires_grad=True)]],
+model_lddmm = im.Models.ModelPointsRegistration(
+    [source],
     [implicit00, implicit1],
     [True, True],
     [attach.VarifoldAttachement([1, 0.2])]
@@ -106,15 +106,22 @@ model_lddmm = im.Models.ModelCompoundWithPointsRegistration(
 
 #%%
 model = model_lddmm
-costs = model.fit([(target, torch.ones(target.shape[0], requires_grad=True))], max_iter=2000, l=100., lr=0.0001, log_interval=1)
+
 
 #%%
-model.compute([(target, torch.ones(target.shape[0], requires_grad=True))])
+fitter = im.Models.ModelFittingScipy(model, 1., 500.)
+#%%
+
+costs = fitter.fit([target], 750, options={})
+#costs = model.fit([(target, torch.ones(target.shape[0], requires_grad=True))], max_iter=2000, l=100., lr=0.0001, log_interval=1)
+
+#%%
+model.compute([target])
 import numpy as np
 grid_origin, grid_size, grid_resolution = [-2., -1.], [4., 2.], [40, 20]
 def_grids = model.compute_deformation_grid(grid_origin, grid_size, grid_resolution, it=10)
 
-final = model.shot_manifold[0].gd.view(-1,2).detach().numpy()
+final = model.modules[0].manifold.gd.view(-1,2).detach().numpy()
 ax_c = plt.subplot(111, aspect='equal')
 im.Utilities.usefulfunctions.plot_grid(ax_c, def_grids[-1][0].numpy(), def_grids[-1][1].numpy(), color='k')
 
@@ -127,7 +134,7 @@ plt.plot(final[:,0], final[:,1], 'G', label='final')
 #plt.plot(GD_opt[:,0], GD_opt[:,1], '+b', label='optimized')
 #names_exp = 'exp0'
 #gd_init = np.array([[-1., 0.6], [0.8, 0.6]])
-names_exp = 'exp_LDDMM_grande_translation'
+names_exp = 'exp_LDDMM_grande_translation_sigma01'
 #gd_init = np.array([[-1., 0.], [1., 0.]])
 #plt.plot(gd_init[:,0], gd_init[:,1], '*b', label='initialisation')
 plt.axis('equal')
