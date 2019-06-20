@@ -52,7 +52,11 @@ class Model():
                 self.break_loop = True
             else:
                 cost.backward(retain_graph=True)
-
+            #print('=======')
+            #print(self.init_manifold[1].gd)
+            #print(self.init_manifold[2].gd)
+            #print(self.init_manifold[0].cotan)
+            #print('=======')
             return cost
 
         for i in range(0, max_iter):
@@ -81,6 +85,9 @@ class ModelCompound(Model):
             self.__parameters.extend(self.__init_manifold[i].unroll_cotan())
             if(not self.__fixed[i]):
                 self.__parameters.extend(self.__init_manifold[i].unroll_gd())
+            #self.__modules[i].manifold.fill(self.__init_manifold[i])   
+            #self.__modules[i].manifold.fill_gd(self.__init_manifold[i].gd)
+            #self.__modules[i].manifold.fill_cotan(self.__init_manifold[i].cotan)
 
         self.__parameters.extend(parameters)
 
