@@ -106,7 +106,7 @@ model_lddmm = im.Models.ModelCompoundWithPointsRegistration(
 
 #%%
 model = model_lddmm
-costs = model.fit([(target, torch.ones(target.shape[0], requires_grad=True))], max_iter=2000, l=20., lr=0.001)
+costs = model.fit([(target, torch.ones(target.shape[0], requires_grad=True))], max_iter=2000, l=100., lr=0.0001, log_interval=1)
 
 #%%
 model.compute([(target, torch.ones(target.shape[0], requires_grad=True))])
