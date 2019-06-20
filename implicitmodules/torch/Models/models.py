@@ -97,6 +97,7 @@ class Model:
         # Called to update the parameter list sent to the optimizer
         self.compute_parameters()
 
+
     @property
     def modules(self):
         return self.__modules
