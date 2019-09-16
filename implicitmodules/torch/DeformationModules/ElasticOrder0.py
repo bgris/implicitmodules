@@ -62,6 +62,8 @@ class ImplicitModule0(DeformationModule):
 
     def cost(self):
         """Returns the cost."""
+        
+        # SKS order 0:
         K_q = K_xx(self.manifold.gd.view(-1, self.__manifold.dim), self.__sigma)
         m = torch.mm(K_q + self.__nu * torch.eye(self.__manifold.nb_pts), self.__controls.view(-1, self.__manifold.dim))
         return 0.5 * self.__coeff * torch.dot(m.view(-1), self.__controls.view(-1))
@@ -75,7 +77,7 @@ class ImplicitModule0(DeformationModule):
         controls, _ = torch.solve(vs(self.manifold.gd.view(-1, self.manifold.dim)), K_q)
         self.__controls = controls.contiguous().view(-1) / self.__coeff
 
-        #
+        #  Keops
         from pykeops.torch import KernelSolve
         formula = 'Exp(-p * SqDist(x, y)) * b'
         aliases = ['x = Vi(' + str(self.__manifold.dim) + ')',
@@ -87,13 +89,12 @@ class ImplicitModule0(DeformationModule):
         b = vs(self.manifold.gd.view(-1, self.manifold.dim))
         g = torch.tensor([.5 / self.sigma / self.sigma])
 
+        d = controls.contiguous().view(-1) / self.__coeff
         c = Kinv(x, x, b, g, alpha=self.__nu).view(-1) / self.__coeff
-
-        print(torch.allclose(c, d, atol=1e-6, rtol=1e-4))
 
         if not torch.allclose(c, d, atol=1e-6, rtol=1e-4):
             raise RuntimeError('ElasticOrder0 module [KeOps] KernelSolve bad conditionned')
-        
+        # end Keops
 
     def field_generator(self):
         return StructuredField_0(self.__manifold.gd.view(-1, self.__manifold.dim),
