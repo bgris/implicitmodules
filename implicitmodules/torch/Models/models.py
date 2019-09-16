@@ -1,7 +1,10 @@
 import copy
+import time
+from collections import Iterable
 
 import torch
 import torch.optim
+from .LBFGS import FullBatchLBFGS
 
 from implicitmodules.torch.DeformationModules import CompoundModule, SilentLandmarks
 from implicitmodules.torch.HamiltonianDynamic import Hamiltonian, shoot
@@ -10,91 +13,43 @@ from implicitmodules.torch.Utilities.sampling import sample_from_greyscale, defo
 from implicitmodules.torch.Utilities.usefulfunctions import grid2vec, vec2grid
 
 
-class Model():
-    def __init__(self, attachement):
-        self.__attachement = attachement
-
-    @property
-    def attachement(self):
-        return self.__attachement
-
-    def compute(self):
-        raise NotImplementedError
-
-    def __call__(self, reverse=False):
-        raise NotImplementedError
-
-    def transform_target(self, target):
-        return target
-
-    def fit(self, target, lr=1e-3, l=1., max_iter=100, tol=1e-7, log_interval=10):
-        transformed_target = self.transform_target(target)
-
-        optimizer = torch.optim.LBFGS(self.parameters, lr=lr, max_iter=4)
-        self.nit = -1
-        self.break_loop = False
-        costs = []
-
-        def closure():
-            self.nit += 1
-            optimizer.zero_grad()
-            if self.precompute_cb is not None:
-                self.precompute_cb(self.parameters)
-            self.compute(transformed_target)
-            attach = l*self.attach
-            cost = attach + self.deformation_cost
-            if(self.nit%log_interval == 0):
-                print("It: %d, deformation cost: %.6f, attach: %.6f. Total cost: %.6f" % (self.nit, self.deformation_cost.detach().numpy(), attach.detach().numpy(), cost.detach().numpy()))
-
-            costs.append(cost.item())
-
-            if(len(costs) > 1 and abs(costs[-1] - costs[-2]) < tol) or self.nit >= max_iter:
-                self.break_loop = True
-            else:
-                cost.backward(retain_graph=True)
-
-            return cost
-
-        for i in range(0, max_iter):
-            optimizer.step(closure)
-
-            if(self.break_loop):
-                break
-
-        print("End of the optimisation process.")
-        return costs
-
-
-class ModelCompound(Model):
-    def __init__(self, modules, fixed, attachement, precompute_cb=None, parameters=[]):
-        super().__init__(attachement)
+class Model:
+    def __init__(self, modules, attachement, fit_moments, fit_gd, lam, precompute_callback, other_parameters):
         self.__modules = modules
-        self.__fixed = fixed
-        self.__precompute_cb = precompute_cb
+        self.__attachement = attachement
+        self.__precompute_callback = precompute_callback
+        self.__fit_moments = fit_moments
+        self.__fit_gd = fit_gd
+        self.__lam = lam
+
+        if other_parameters is None:
+            other_parameters = []
 
         self.__init_manifold = CompoundModule(self.__modules).manifold.copy()
-        self.__init_parameters = copy.copy(parameters)
+        # We copy each parameters
+        self.__init_other_parameters = []
+        for p in other_parameters:
+            #self.__init_other_parameters.append(p.detach().clone().requires_grad_())
+            self.__init_other_parameters.append(p)
 
-        self.__parameters = []
-
-        for i in range(len(self.__modules)):
-            self.__parameters.extend(self.__init_manifold[i].unroll_cotan())
-            if(not self.__fixed[i]):
-                self.__parameters.extend(self.__init_manifold[i].unroll_gd())
-
-        self.__parameters.extend(parameters)
+        # Called to update the parameter list sent to the optimizer
+        self.compute_parameters()
 
     @property
     def modules(self):
         return self.__modules
 
     @property
-    def fixed(self):
-        return self.__fixed
+    def attachement(self):
+        return self.__attachement
 
     @property
-    def precompute_cb(self):
-        return self.__precompute_cb
+    def precompute_callback(self):
+        return self.__precompute_callback
+
+    @property
+    def fit_moments(self):
+        return self.__fit_moments
 
     @property
     def init_manifold(self):
@@ -108,7 +63,53 @@ class ModelCompound(Model):
     def parameters(self):
         return self.__parameters
 
-    def compute_deformation_grid(self, grid_origin, grid_size, grid_resolution, it=2, intermediate=False):
+    @property
+    def lam(self):
+        return self.__lam
+
+    def gradcheck(self, target, l):
+        def energy(*param):
+            parameters = list(param)
+            init_manifold = []
+            init_other_parameters = []
+
+            if self.__fit_moments:
+                init_manifold = parameters[:self.__init_manifold.len_gd]
+                self.__init_other_parameters = parameters[len(init_manifold):]
+                self.__init_manifold.fill_cotan(self.__init_manifold.roll_cotan(init_manifold))
+            else:
+                self.__init_other_parameters = parameters
+
+            self.compute_parameters()
+
+            if self.__precompute_callback:
+                self.__precompute_callback(self.__modules, self.__parameters)
+
+            deformation_cost, attach_cost = self.compute(target)
+            cost = deformation_cost + l*attach_cost
+            return cost
+
+        return torch.autograd.gradcheck(energy, self.__parameters, raise_exception=False)
+
+    def compute_parameters(self):
+        """
+        Fill the parameter list that will be optimized by the optimizer. 
+        We first fill in the moments of each modules and then adds other model parameters.
+        """
+        self.__parameters = []
+
+        if self.__fit_moments:
+            for i in range(len(self.__modules)):
+                self.__parameters.extend(self.__init_manifold[i].unroll_cotan())
+
+        if self.__fit_gd is not None:
+            for i in range(len(self.__modules)):
+                if self.__fit_gd[i]:
+                    self.__parameters.extend(self.__init_manifold[i].unroll_gd())
+
+        self.__parameters.extend(self.__init_other_parameters)
+
+    def compute_deformation_grid(self, grid_origin, grid_size, grid_resolution, it=10, method="euler", intermediate=False):
         x, y = torch.meshgrid([
             torch.linspace(grid_origin[0], grid_origin[0]+grid_size[0], grid_resolution[0]),
             torch.linspace(grid_origin[1], grid_origin[1]+grid_size[1], grid_resolution[1])])
@@ -120,88 +121,63 @@ class ModelCompound(Model):
         compound = CompoundModule(self.modules)
         compound.manifold.fill(self.init_manifold)
 
-        intermediate_states, _ = shoot(Hamiltonian([grid_silent, *compound]), 10, "torch_euler")
+        intermediate_states, _= shoot(Hamiltonian([grid_silent, *compound]), it, method, intermediates=True)
 
         return [vec2grid(inter[0].gd.detach().view(-1, 2), grid_resolution[0], grid_resolution[1]) for inter in intermediate_states]
 
 
-class ModelCompoundWithPointsRegistration(ModelCompound):
-    def __init__(self, source, module_list, fixed, attachement, parameters=[]):
-        if isinstance(source, list):
-            self.__compound_fit = True
-            self.__compound_fit_size = len(source)
-            self.alpha = []
-            for i in range(self.__compound_fit_size):
-                self.alpha.insert(i, source[i][1])
-                module_list.insert(i, SilentLandmarks(Landmarks(2, source[i][0].shape[0], gd=source[i][0].view(-1).requires_grad_())))
-                fixed.insert(i, True)
+class ModelPointsRegistration(Model):
+    """
+    TODO: add documentation
+    """
+    def __init__(self, source, modules, attachement, lam=1., fit_gd=None, fit_moments=True, precompute_callback=None, other_parameters=None):
+        assert isinstance(source, Iterable) and not isinstance(source, torch.Tensor)
 
-        else:
-            self.__compound_fit = False
-            self.alpha = source[1]
-            module_list.insert(0, SilentLandmarks(Landmarks(2, source[0].shape[0], gd=source[0].view(-1).requires_grad_())))
-            fixed.insert(0, True)
+        if other_parameters is None:
+            other_parameters = []
 
-        super().__init__(module_list, fixed, attachement, parameters=parameters)
+        # We first determinate the number of sources
+        self.source_count = len(source)
 
-    def compute(self, target):
+        # We now create the corresponding silent landmarks and save the alpha values
+        self.weights = []
+        for i in range(self.source_count):
+            if isinstance(source[i], tuple):
+                # Weights are provided
+                self.weights.insert(i, source[i][1])
+                modules.insert(i, SilentLandmarks(Landmarks(2, source[i][0].shape[0], gd=source[i][0].view(-1).requires_grad_())))
+            elif isinstance(source[i], torch.Tensor):
+                # No weights provided
+                self.weights.insert(i, None)
+                modules.insert(i, SilentLandmarks(Landmarks(2, source[i].shape[0], gd=source[i].view(-1).requires_grad_())))
+
+        super().__init__(modules, attachement, fit_moments, fit_gd, lam, precompute_callback, other_parameters)
+
+    def compute(self, target, it=10, method="euler"):
+        """ Does shooting. Outputs compute deformation and attach cost. """
+        # We first create and fill the compound module we will shoot
         compound = CompoundModule(self.modules)
         compound.manifold.fill(self.init_manifold)
-        h = Hamiltonian(compound)
-        shoot(h, 10, "torch_euler")
-        self.shot_manifold = compound.manifold.copy()
-        self.deformation_cost = compound.cost()
 
-        if self.__compound_fit:
-            self.__shot_points = []
-            attach_list = []
-            for i in range(self.__compound_fit_size):
-                self.__shot_points.append(compound[i].manifold.gd.view(-1, 2))
-                attach_list.append(self.attachement[i]((compound[i].manifold.gd.view(-1, 2), self.alpha[i]), target[i]))
-            self.attach = sum(attach_list)
-        else:
-            self.__shot_points = compound[0].manifold.gd.view(-1, 2)
-            self.attach = self.attachement((self.__shot_points, self.alpha), target)
+        # Shooting
+        shoot(Hamiltonian(compound), it, method)
+        deformation_cost = compound.cost()
 
-    def __call__(self):
-        if self.__compound_fit:
-            return list(zip(self.__shot_points, self.alpha))
-        else:
-            return (self.__shot_points, self.alpha)
+        # We compute the attach cost for each source/target couple
+        attach_costs = []
+        for i in range(self.source_count):
+            if self.weights[i] is not None:
+                attach_costs.append(self.attachement[i]((compound[i].manifold.gd.view(-1, 2), self.weights[i]), target[i]))
+            else:
+                attach_costs.append(self.attachement[i]((compound[i].manifold.gd.view(-1, 2), None), (target[i], None)))
 
+        attach_cost = self.lam*sum(attach_costs)
+        c = deformation_cost + attach_cost
+        cost = c.detach()
+        c.backward()
 
-class ModelCompoundImageRegistration(ModelCompound):
-    def __init__(self, source_image, modules, fixed, lossFunc, img_transform=lambda x: x, parameters=[]):
-        self.__frame_res = source_image.shape
-        self.__source = sample_from_greyscale(source_image.clone(), 0., centered=False, normalise_weights=False, normalise_position=False)
-        self.__img_transform = img_transform
-        super().__init__(modules, fixed, lossFunc, parameters=parameters)
+        del c
 
-    def transform_target(self, target):
-        return self.__img_transform(target)
+        return cost, deformation_cost.detach(), attach_cost.detach()
 
-    def compute(self, target):
-        # First, forward step shooting only the deformation modules
-        compound = CompoundModule(self.modules)
-        compound.manifold.fill(self.init_manifold)
-        shoot(Hamiltonian(compound), it=4)
-        self.shot_manifold = compound.manifold.copy()
-
-        # Prepare for reverse shooting
-        compound.manifold.negate_cotan()
-
-        image_landmarks = Landmarks(2, self.__source[0].shape[0], gd=self.__source[0].view(-1))
-        compound = CompoundModule([SilentLandmarks(image_landmarks), *compound])
-
-        # Then, reverse shooting in order to get the final deformed image
-        intermediate = shoot(Hamiltonian(compound), it=8)
-
-        self.__output_image = deformed_intensities(compound[0].manifold.gd.view(-1, 2), self.__source[1].view(self.__frame_res)).clone()
-
-        # Compute attach and deformation cost
-        self.attach = self.loss(self.__output_image, target)
-        self.deformation_cost = compound.cost()
-
-    def __call__(self):
-        return self.__output_image
 
