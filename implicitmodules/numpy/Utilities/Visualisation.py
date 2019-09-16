@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Ellipse
 
-from implicitmodules.torch.Utilities.usefulfunctions import AABB
+from implicitmodules.torch.Utilities import AABB
 
 
 def my_close(x):
