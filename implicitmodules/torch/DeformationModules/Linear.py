@@ -12,7 +12,7 @@ class LinearDeformation(DeformationModule):
         self.__controls = torch.tensor(0., dtype=A.dtype)
         self.__coeff = coeff
         self.__manifold = manifold
-
+        self.dim = manifold.dim
         self.__A = A
 
     @property
