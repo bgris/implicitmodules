@@ -20,6 +20,7 @@ class ModelImageRegistration(Model):
         model_modules.append(SilentLandmarks(source_pos.shape[1], source_pos.shape[0], gd=source_pos.clone().requires_grad_(), cotan=torch.zeros_like(source_pos, requires_grad=True)))
         model_modules.extend(modules)
 
+        self.__source_pos = source_pos
         self.__weights = source_weight
 
         if fit_gd:
@@ -40,14 +41,18 @@ class ModelImageRegistration(Model):
         compound = CompoundModule(self.modules)
         compound.manifold.fill_gd([manifold.gd for manifold in self.init_manifold])
         compound.manifold.fill_cotan([manifold.cotan for manifold in self.init_manifold])
-
+        
         # # Forward shooting
         shoot(Hamiltonian(compound), solver, it, intermediates=intermediates)
+        
 
         # Prepare for reverse shooting
         compound.manifold.negate_cotan()
-        pixels = AABB(0., self.__image_resolution[0], 0., self.__image_resolution[1]).fill_count(self.__image_resolution)
-        silent = SilentLandmarks(2, pixels.shape[0], gd=pixels)
+        #pixels = AABB(0., self.__image_resolution[0], 0., self.__image_resolution[1]).fill_count(self.__image_resolution)
+        
+        #silent = SilentLandmarks(2, pixels.shape[0], gd=pixels)
+        silent = SilentLandmarks(2, self.__source_pos.shape[0], gd=self.__source_pos)
+        
         compound = CompoundModule([silent, *compound.modules])
 
         shoot(Hamiltonian(compound), solver, it)

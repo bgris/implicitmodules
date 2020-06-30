@@ -100,6 +100,7 @@ def sample_from_greyscale(image, threshold, centered=False, normalise_weights=Fa
     if(normalise_weights):
         alpha = alpha/torch.sum(alpha)
 
+    pos = torch.stack([pos[:,1], pos[:,0]]).t()   
     return pos, alpha
 
 
@@ -116,7 +117,7 @@ def deformed_intensities(deformed_points, intensities):
     Taken and adapted from https://gitlab.icm-institute.org/aramislab/deformetrica/blob/master/numpy/core/observations/deformable_objects/image.py
     """
 
-    u, v = deformed_points[:, 0], deformed_points[:, 1]
+    u, v = deformed_points[:, 1], deformed_points[:, 0]
 
     u1 = torch.floor(u).long()
     v1 = torch.floor(v).long()
