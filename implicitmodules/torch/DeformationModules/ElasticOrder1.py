@@ -12,7 +12,7 @@ from implicitmodules.torch.StructuredFields import StructuredField_p
 class ImplicitModule1Base(DeformationModule):
     """ Implicit module of order 1. """
 
-    def __init__(self, manifold, sigma, C, nu, coeff, label):
+    def __init__(self, manifold, sigma, C, nu, coeff, coeffcont, label):
         assert isinstance(manifold, Stiefel)
         super().__init__(label)
         self.__manifold = manifold
@@ -20,6 +20,7 @@ class ImplicitModule1Base(DeformationModule):
         self.__sigma = sigma
         self.__nu = nu
         self.__coeff = coeff
+        self.__coeffcont = coeffcont
         self.__dim_controls = C.shape[2]        
         self.__sym_dim = int(self.manifold.dim * (self.manifold.dim + 1) / 2)
         self.__controls = torch.zeros(self.__dim_controls, device=self.__manifold.device)
@@ -36,8 +37,8 @@ class ImplicitModule1Base(DeformationModule):
         return outstr
 
     @classmethod
-    def build(cls, dim, nb_pts, sigma, C, nu=0., coeff=1., gd=None, tan=None, cotan=None, label=None):
-        return cls(Stiefel(dim, nb_pts, gd=gd, tan=tan, cotan=cotan), sigma, C, nu, coeff, label)
+    def build(cls, dim, nb_pts, sigma, C, nu=0., coeff=1., coeffcont=0., gd=None, tan=None, cotan=None, label=None):
+        return cls(Stiefel(dim, nb_pts, gd=gd, tan=tan, cotan=cotan), sigma, C, nu, coeff, coeffcont, label)
 
     @property
     def dim(self):
@@ -88,8 +89,15 @@ class ImplicitModule1Base(DeformationModule):
     def __set_coeff(self, coeff):
         self.__coeff = coeff
 
+    def __get_coeffcont(self):
+        return self.__coeffcont
+
+    def __set_coeffcont(self, coeffcont):
+        self.__coeffcont = coeffcont
+
     controls = property(__get_controls, fill_controls)
     coeff = property(__get_coeff, __set_coeff)
+    coeffcont = property(__get_coeffcont, __set_coeffcont)
 
     def fill_controls_zero(self):
         self.fill_controls(torch.zeros(self.__dim_controls, device=self.device, requires_grad=True))
@@ -115,29 +123,29 @@ class ImplicitModule1Base(DeformationModule):
 
 
 class ImplicitModule1_Torch(ImplicitModule1Base):
-    def __init__(self, manifold, sigma, C, nu, coeff, label):
-        super().__init__(manifold, sigma, C, nu, coeff, label)
+    def __init__(self, manifold, sigma, C, nu, coeff, coeffcont, label):
+        super().__init__(manifold, sigma, C, nu, coeff, coeffcont, label)
 
     @property
     def backend(self):
         return 'torch'
 
     def cost(self):
-        return 0.5 * self.coeff * torch.dot(self.__aqh.view(-1), self.__lambdas.view(-1))
+        return 0.5 * self.coeff * (torch.dot(self.__aqh.view(-1), self.__lambdas.view(-1)) + self.coeffcont*torch.sum(self.controls **2))
 
     def compute_geodesic_control(self, man):
         vs = self.adjoint(man)
         d_vx = vs(self.manifold.gd[0], k=1)
 
         S = 0.5 * (d_vx + torch.transpose(d_vx, 1, 2))
-        S = torch.tensordot(S, eta(self.manifold.dim, device=self.device), dims=2)
+        S = torch.tensordot(S, eta(self.manifold.dim, device=self.device), dims=2) 
 
         self.__compute_sks()
 
         tlambdas, _ = torch.solve(S.view(-1, 1), self.coeff * self.__sks)
 
         (aq, aqkiaq) = self.__compute_aqkiaq()
-        c, _ = torch.solve(torch.mm(aq.t(), tlambdas), aqkiaq)
+        c, _ = torch.solve(torch.mm(aq.t(), tlambdas) , aqkiaq+ self.coeffcont*torch.eye(self.dim_controls))
         self.controls = c.reshape(-1)
         self.__compute_moments()
 
