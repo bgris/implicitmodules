@@ -1,6 +1,8 @@
 import torch
 import math
 
+from implicitmodules.torch.Utilities import rot2d
+
 
 def linear_transform(points, A):
     """ Applies a linear transformation to a point tensor.
@@ -158,4 +160,30 @@ def generate_disc_density(density, outer_radius=1., inner_radius=0.):
         r*torch.cos(torch.linspace(0., 2.*math.pi, math.ceil(angular_resolution))),
         r*torch.sin(torch.linspace(0., 2.*math.pi, math.ceil(angular_resolution)))], dim=1)
                       for angular_resolution, r in zip(angular_resolutions, radials)])
+
+
+def generate_boudin(left_width, right_width, height, thickness, seg_length, arc_resolution, cap_resolution, fill_resolution, seg_resolution):
+    t = torch.linspace(0., math.pi, arc_resolution)
+    half_circle = torch.stack([torch.cos(t), torch.sin(t)], dim=1)
+    t = torch.linspace(math.pi, 0., arc_resolution)
+    reversed_half_circle = torch.stack([torch.cos(t), torch.sin(t)], dim=1)
+
+    left_arc = linear_transform(half_circle, rot2d(math.pi/2.))*torch.tensor([left_width, height])
+    right_arc = linear_transform(reversed_half_circle, rot2d(math.pi/2.))*torch.tensor([right_width, height-thickness*2.]) + torch.tensor([thickness, 0.])
+
+    top_cap = linear_transform(half_circle, rot2d(-math.pi/2.))*torch.tensor([thickness, thickness]) + torch.tensor([thickness+seg_length, height-thickness])
+    bottom_cap = linear_transform(half_circle, rot2d(-math.pi/2.))*torch.tensor([thickness, thickness]) + torch.tensor([thickness+seg_length, -height+thickness])
+
+    top_fill = torch.stack([torch.linspace(thickness, 0., fill_resolution), height*torch.ones(fill_resolution)], dim=1)[1:-1]
+    bottom_fill = torch.stack([torch.linspace(0., thickness, fill_resolution), -height*torch.ones(fill_resolution)], dim=1)[1:-1]
+    
+    bot_bot_seg = torch.stack([torch.linspace(thickness, thickness + seg_length, seg_resolution), -height*torch.ones(seg_resolution)], dim=1)[1:-1]
+    bot_top_seg = torch.stack([torch.linspace(thickness, thickness + seg_length, seg_resolution), (-height+2.*thickness)*torch.ones(seg_resolution)], dim=1)[1:-1]
+    top_bot_seg = torch.stack([torch.linspace(thickness + seg_length, thickness, seg_resolution), (height-2*thickness)*torch.ones(seg_resolution)], dim=1)[1:-1]
+    top_top_seg = torch.stack([torch.linspace(thickness + seg_length, thickness, seg_resolution), height*torch.ones(seg_resolution)], dim=1)[1:-1]
+
+    boudin = torch.cat([left_arc, bottom_fill, bot_bot_seg, bottom_cap, bot_top_seg, right_arc, top_bot_seg, top_cap, top_top_seg, top_fill])
+
+    return boudin
+
 
