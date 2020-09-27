@@ -152,7 +152,7 @@ growth_bottom = dm.DeformationModules.ImplicitModule1(
     gd=(points_growth_bottom, rot_growth_bottom))
 
 sigma_trans = 0.05
-coefftrans = 50.
+coefftrans = 20.
 translations = dm.DeformationModules.ImplicitModule0(2, source.shape[0], sigma_trans, nu=0.1, gd=source.clone().requires_grad_(), coeff=coefftrans)
 
 rotation = dm.DeformationModules.LocalRotation(2, 2., gd=torch.tensor([[0., 0.]]).requires_grad_())
@@ -165,7 +165,7 @@ target_deformable = dm.Models.DeformablePoints(target)
 sigmas_varifold = [0.05, 1.]
 attachment = dm.Attachment.VarifoldAttachment(2, sigmas_varifold)
 
-lam = 20.
+lam = 50.
 modelgrowth = dm.Models.RegistrationModel([source_deformable], [global_translation, translations, growth_top, growth_bottom], [attachment], fit_gd=[False], lam=lam)
 #modelgrowth = dm.Models.RegistrationModel([source_deformable], [global_translation, rotation, growth], [attachment], fit_gd=[False], lam=10.)
 #modelgrowth = dm.Models.RegistrationModel([source_deformable], [global_translation, rotation, growth], [attachment], fit_gd=[False], lam=10.,precompute_callback=precompute, other_parameters={'angles': {'params': [angles]}})
