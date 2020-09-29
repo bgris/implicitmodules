@@ -38,7 +38,7 @@ path_subj = path_datafiles + 'ShapesJSON/Shapes/' + names_subj[ind_subj] + '.jso
 list_subj = []
 list_indi_tri = []
 list_majo = []
-for ind_subj in range(8):
+for ind_subj in range(20):
     path_subj = path_datafiles + 'ShapesJSON/Shapes/' + names_subj[ind_subj] + '.json'
     with open(path_subj) as f:
         subj_dict = json.load(f)
@@ -55,12 +55,12 @@ for ind_subj in range(8):
             indi_tri.append([subj_dict['triangles'][i]['p1'],subj_dict['triangles'][i]['p2'],subj_dict['triangles'][i]['p3']])
         list_indi_tri.append(np.array(indi_tri))
      
-    path_majo = path_datafiles + 'MajorityJSON/Majority/' + names_subj[ind_subj] + '.json'
-    with open(path_majo) as f:
-        list_majo.append(json.load(f))
+    #path_majo = path_datafiles + 'MajorityJSON/Majority/' + names_subj[ind_subj] + '.json'
+    #with open(path_majo) as f:
+    #    list_majo.append(json.load(f))
 
 ind_subj_source = 0
-ind_subj_target = 7
+ind_subj_target = 8
 
 source = torch.tensor(list_subj[ind_subj_source])
 target = torch.tensor(list_subj[ind_subj_target])
