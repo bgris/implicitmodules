@@ -176,7 +176,9 @@ class DeformableImage(Deformable):
     output = property(__set_output, __get_output)
 
     def _backward_module(self):
-        pixel_grid = pixels2points(self.__extent.fill_count(self.__shape), self.__shape, self.__extent)
+        #pixel_grid = pixels2points(self.__extent.fill_count(self.__shape), self.__shape, self.__extent)
+        extent_tmp = AABB(0., self.__shape[1]-1, 0., self.__shape[0]-1)
+        pixel_grid = pixels2points(extent_tmp.fill_count(self.__shape), self.__shape, self.__extent)
         return SilentLandmarks(2, pixel_grid.shape[0], gd=pixel_grid)
 
     def compute_deformed(self, modules, solver, it, costs=None, intermediates=None):
