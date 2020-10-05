@@ -30,12 +30,13 @@ class RegistrationModel(BaseModel):
         if other_parameters is None:
             other_parameters = []
 
-        [module.manifold.fill_cotan_zeros(requires_grad=True) for module in deformation_modules]
+        deformable_manifolds = [deformable.silent_module.manifold.clone(False) for deformable in self.__deformables]
+        deformation_modules_manifolds = CompoundModule(deformation_modules).manifold.clone(False)
 
-        deformable_manifolds = [deformable.silent_module.manifold.clone() for deformable in self.__deformables]
-        deformation_modules_manifolds = CompoundModule(deformation_modules).manifold.clone()
+        self.__init_manifold = CompoundManifold([*deformable_manifolds, *deformation_modules_manifolds])
 
-        self.__init_manifold = CompoundManifold([*deformable_manifolds, *deformation_modules_manifolds]).clone(requires_grad=True)
+        [manifold.cotan_requires_grad_() for manifold in self.__init_manifold]
+
         self.__init_other_parameters = other_parameters
 
         self.__modules = [deformable.silent_module for deformable in self.__deformables]
@@ -103,12 +104,18 @@ class RegistrationModel(BaseModel):
         self.__parameters['cotan'] = {'params': self.__init_manifold.unroll_cotan()}
 
         # Geometrical descriptors if specified
-        if self.__fit_gd and any(self.__fit_gd):
+        if self.__fit_gd:
             self.__parameters['gd'] = {'params': []}
 
             for fit_gd, init_manifold in zip(self.__fit_gd, self.__init_manifold[len(self.__deformables):]):
-                if fit_gd:
+                if isinstance(fit_gd, bool) and fit_gd:
+                    init_manifold.gd_requires_grad_()
                     self.__parameters['gd']['params'].extend(init_manifold.unroll_gd())
+                # Geometrical descriptor is multidimensional
+                elif isinstance(fit_gd, Iterable):
+                    for fit_gdi, init_manifold_gdi in zip(fit_gd, init_manifold.unroll_gd()):
+                        if fit_gdi:
+                            self.__parameters['gd']['params'].append(init_manifold_gdi)
 
         # Other parameters
         self.__parameters.update(self.__init_other_parameters)
