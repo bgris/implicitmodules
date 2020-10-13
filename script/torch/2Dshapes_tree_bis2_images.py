@@ -214,6 +214,6 @@ shoot_it = 10
 costs = {}
 fitter = dm.Models.Fitter(model_growth_image, optimizer='torch_lbfgs')
 # fitter = dm.Models.Fitter(model, optimizer='scipy_l-bfgs-b')
-fitter.fit([target_deformable], 10, costs=costs, options={'shoot_solver': shoot_solver, 'shoot_it': shoot_it, 'line_search_fn': 'strong_wolfe'})
+fitter.fit([target_deformable], 1, costs=costs, options={'shoot_solver': shoot_solver, 'shoot_it': shoot_it, 'line_search_fn': 'strong_wolfe'})
 
 pickle.dump(modelgrowth.init_manifold, open( "../../Results/Tree/Mixte_image_init_manifold" + "_lam_" + str(lam) + "_coefftrans_" + str(coefftrans) + str(ind_subj_source) + '_' + str(ind_subj_target) + ".p", "wb" ) )
