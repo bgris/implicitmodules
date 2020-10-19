@@ -5,20 +5,29 @@ import torch
 from implicitmodules.torch.DeformationModules import CompoundModule
 from implicitmodules.torch.Manifolds import CompoundManifold
 from implicitmodules.torch.Models import BaseModel, deformables_compute_deformed
+from implicitmodules.torch.MultiShape import MultiShape
 
 
-class RegistrationModel(BaseModel):
-    def __init__(self, deformables, deformation_modules, attachments, fit_gd=None, lam=1., precompute_callback=None, other_parameters=None, multi):
-        if not isinstance(deformables, Iterable):
-            deformables = [deformables]
+class RegistrationModelMultishape(BaseModel):
+    def __init__(self, deformables, deformation_modules, attachments, sigma_background, fit_gd=None, lam=1., precompute_callback=None, other_parameters=None, constraints=None):
+        
+        """
+        deformation_modules is a list of N lists of modules, one for each shape
+        deformables is a list of of lists ????? deformables. The first N correspond to the N shapes, the first element of each list is the boundary
+        
+        """
+        
+        #TODO: assert
+        #if not isinstance(deformables, Iterable):
+        #    deformables = [deformables]
 
-        if not isinstance(deformation_modules, Iterable):
-            deformation_modules = [deformation_modules]
+        #if not isinstance(deformation_modules, Iterable):
+        #    deformation_modules = [deformation_modules]
 
-        if not isinstance(attachments, Iterable):
-            attachments = [attachments]
+        #if not isinstance(attachments, Iterable):
+        #    attachments = [attachments]
 
-        assert len(deformables) == len(attachments)
+        #assert len(deformables) == len(attachments)
 
         self.__deformables = deformables
         self.__attachments = attachments
@@ -26,12 +35,15 @@ class RegistrationModel(BaseModel):
         self.__precompute_callback = precompute_callback
         self.__fit_gd = fit_gd
         self.__lam = lam
+        self.__constraints = constraints
+        self.__sigma_background = sigma_background
 
         if other_parameters is None:
             other_parameters = []
 
-        deformable_manifolds = [deformable.silent_module.manifold.clone(False) for deformable in self.__deformables]
-        deformation_modules_manifolds = CompoundModule(deformation_modules).manifold.clone(False)
+        #TODO build deformable_manifolds
+        #deformable_manifolds = [deformable.silent_module.manifold.clone(False) for deformable in self.__deformables]
+        #deformation_modules_manifolds = CompoundModule(deformation_modules).manifold.clone(False)
 
         self.__init_manifold = CompoundManifold([*deformable_manifolds, *deformation_modules_manifolds])
 
@@ -189,13 +201,20 @@ class RegistrationModel(BaseModel):
         list
             List of deformed sources.
         """
+        
+        
+        multishape = MultiShape(self.__modules, self.__sigma_background)
+        
+        
+        #TODO : change if necessary fill_gd and fill_cotan
+        multi_shape.fill_gd(init_manifold.gd)
+        multi_shape.fill_cotan(init_manifold.cotan)
+        #compound_module = CompoundModule(self.__deformation_modules)
+        #compound_module.manifold.fill_gd([manifold.gd for manifold in self.__init_manifold[len(self.__deformables):]])
+        #compound_module.manifold.fill_cotan([manifold.cotan for manifold in self.__init_manifold[len(self.__deformables):]])
 
-        compound_module = CompoundModule(self.__deformation_modules)
-        compound_module.manifold.fill_gd([manifold.gd for manifold in self.__init_manifold[len(self.__deformables):]])
-        compound_module.manifold.fill_cotan([manifold.cotan for manifold in self.__init_manifold[len(self.__deformables):]])
+        #for deformable, deformable_manifold in zip(self.__deformables, self.__init_manifold):
+        #    deformable.silent_module.manifold.fill(deformable_manifold)
 
-        for deformable, deformable_manifold in zip(self.__deformables, self.__init_manifold):
-            deformable.silent_module.manifold.fill(deformable_manifold)
-
-        return deformables_compute_deformed(self.__deformables, compound_module, solver, it, costs=costs, intermediates=intermediates)
+        return deformables_compute_deformed_multishape(self.__deformables, multishape, self.__constraints, solver, it, costs=costs, intermediates=intermediates)
 

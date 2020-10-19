@@ -262,3 +262,50 @@ def deformables_compute_deformed(deformables, modules, solver, it, costs=None, i
 
     return deformed
 
+
+
+def deformables_compute_deformed_multishape(deformables, multishape, constraints, solver, it, costs=None, intermediates=None):
+    assert isinstance(costs, dict) or costs is None
+    assert isinstance(intermediates, dict) or intermediates is None
+
+    # Regroup silent modules of each deformable and build a compound module
+    silent_modules = [[deformable.silent_module for deformable in deformable_list] for deformable_list in deformables]
+    #compound = CompoundModule([*silent_modules, *modules])
+    
+    modules_tot = [[*silent, * mod] for silent, mod in zip(silent_modules, multishape.modules)]
+    
+    multi_shape_tot = MultiShape(modules_tot, multishape.sigma_background)
+    
+    # Forward shooting
+    shoot(Hamiltonian_multishape(multishape_tot, constraints), solver, it, intermediates=intermediates)
+
+    # Regroup silent modules of each deformable thats need to shoot backward
+    backward_silent_modules = [deformable.silent_module for deformable in deformables if deformable._has_backward]
+
+    if backward_silent_modules is not None:
+        # Backward shooting is needed
+
+        # Build/assemble the modules that will be shot backward
+        backward_modules = [deformable._backward_module() for deformable in deformables if deformable._has_backward]
+        compound = CompoundModule([*backward_silent_modules, *backward_modules, *modules])
+
+        # Reverse the moments for backward shooting
+        compound.manifold.negate_cotan()
+
+        # Backward shooting
+        shoot(Hamiltonian(compound), solver, it)
+
+    # For now, we need to compute the deformation cost after each shooting (and not before any shooting) for computation tree reasons
+    if costs is not None:
+        costs['deformation'] = compound.cost()
+
+    # Ugly way to compute the list of deformed objects. Not intended to stay!
+    deformed = []
+    for deformable in deformables:
+        if deformable._has_backward:
+            deformed.append(deformable._to_deformed(backward_modules.pop(0).manifold.gd))
+        else:
+            deformed.append(deformable._to_deformed(deformable.silent_module.manifold.gd))
+
+    return deformed
+
