@@ -9,7 +9,7 @@ from implicitmodules.torch.MultiShape import MultiShape
 
 
 class RegistrationModelMultishape(BaseModel):
-    def __init__(self, deformables, deformation_modules, attachments, sigma_background, fit_gd=None, lam=1., precompute_callback=None, other_parameters=None, constraints=None):
+    def __init__(self, boundaries, deformables, deformation_modules, attachments, sigma_background, fit_gd=None, lam=1., precompute_callback=None, other_parameters=None, constraints=None, backgroundtype=None):
         
         """
         deformation_modules is a list of N lists of modules, one for each shape
@@ -50,9 +50,23 @@ class RegistrationModelMultishape(BaseModel):
         [manifold.cotan_requires_grad_() for manifold in self.__init_manifold]
 
         self.__init_other_parameters = other_parameters
+        
+        if backgroundtype=='dense':
+            # background module is made of dense tanslations on an area
+            # maybe depends on respctive lengths of boundaries and deformables ? what if attachment depends on a boundary?
+            #TODO
+        else if backgroundtype=='boundary':
+            #background module is needed is made of translations supported by boundaries
+            # Maybe check if all constraints are without background
+            #TODO
+        else:
+            # no need for background module
+            background = None
 
         self.__modules = [deformable.silent_module for deformable in self.__deformables]
         self.__modules.extend(deformation_modules)
+        #TODO: check if OK + if OK if background=None
+        self.__modules.extend(background)
 
         # Update the parameter dict
         self._compute_parameters()
