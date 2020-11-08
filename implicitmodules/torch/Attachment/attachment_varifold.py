@@ -26,6 +26,9 @@ class VarifoldAttachmentBase(Attachment):
 
     @property
     def sigmas(self):
+        """
+        scales of the varifods.
+        """
         return self.__sigmas
 
     def cost_varifold(self, source, target, sigma):
@@ -104,6 +107,9 @@ class VarifoldAttachment3D(VarifoldAttachmentBase):
 
 
 class VarifoldAttachment3D_Torch(VarifoldAttachment3D):
+    """
+    Taken and adapted from https://gitlab.com/icm-institute/aramislab/deformetrica/-/blob/master/deformetrica/core/model_tools/attachments/multi_object_attachment.py
+    """
     def __init__(self, sigmas, weight=1.):
         super().__init__(sigmas, weight=weight)
 

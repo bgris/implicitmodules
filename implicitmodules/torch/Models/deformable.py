@@ -1,7 +1,10 @@
-from pathlib import Path
+import os
+from collections import Iterable
+import pickle
+import copy
 
 import torch
-from numpy import loadtxt
+from numpy import loadtxt, savetxt
 import meshio
 
 from implicitmodules.torch.HamiltonianDynamic import Hamiltonian, shoot
@@ -41,17 +44,37 @@ class DeformablePoints(Deformable):
         super().__init__(Landmarks(points.shape[1], points.shape[0], gd=points))
 
     @classmethod
-    def load_from_file(cls, filename):
-        pass
+    def load_from_file(cls, filename, dtype=None, **kwargs):
+        file_extension = os.path.split(filename)[1]
+        if file_extension == '.csv':
+            return cls.load_from_csv(filename, dtype=dtype, **kwargs)
+        elif file_extension == '.pickle' or file_extension == '.pkl':
+            return cls.load_from_pickle(filename, dtype=dtype)
+        elif file_extension in meshio.extension_to_filetype.keys():
+            return cls.load_from_mesh(filename, dtype=dtype)
+        else:
+            raise RuntimeError("DeformablePoints.load_from_file(): could not load file {filename}, unrecognised file extension!".format(filename=filename))
 
     @classmethod
-    def load_from_pickle(cls, filename):
-        pass
-
-    @classmethod
-    def load_from_csv(cls, filename, **kwargs):
+    def load_from_csv(cls, filename, dtype=None, **kwargs):
         points = loadtxt(filename, **kwargs)
-        return cls(torch.tensor(points))
+        return cls(torch.tensor(points, dtype=dtype))
+
+    @classmethod
+    def load_from_pickle(cls, filename, dtype=None):
+        with open(filename, 'rb') as f:
+            data = pickle.load(f)
+            if isinstance(data, dict):
+                return cls(torch.tensor(data['points'], dtype=dtype))
+            elif isinstance(data, Iterable):
+                return cls(torch.tensor(data, dtype=dtype))
+            else:
+                raise RuntimeError("DeformablePoints.load_from_pickle(): could not infer point dataset from pickle {filename}".format(filename=filename))
+
+    @classmethod
+    def load_from_mesh(cls, filename, dtype=None):
+        mesh = meshio.read(filename)
+        return torch.tensor(mesh.points, dtype=dtype)
 
     @property
     def geometry(self):
@@ -60,6 +83,34 @@ class DeformablePoints(Deformable):
     @property
     def _has_backward(self):
         return False
+
+    def save_to_file(self, filename, **kwargs):
+        file_extension = os.path.split(filename)[1]
+        if file_extension == '.csv':
+            return self.save_to_csv(filename, **kwargs)
+        elif file_extension == '.pickle' or file_extension == '.pkl':
+            return self.save_to_pickle(filename, **kwargs)
+        elif file_extension in meshio.extension_to_filetype.keys():
+            return cls.save_to_mesh(filename, **kwargs)
+        else:
+            raise RuntimeError("DeformablePoints.load_from_file(): could not load file {filename}, unrecognised file extension!".format(filename=filename))
+
+    def save_to_csv(self, filename, **kwargs):
+        savetxt(filename, self.geometry[0].detach().cpu().tolist(), **kwargs)
+
+    def save_to_pickle(self, filename, container='array', **kwargs):
+        with open(filename, 'wb') as f:
+            if container == 'array':
+                pickle.dump(self.geometry[0].detach().cpu().tolist(), f)
+            elif container == 'dict':
+                pickle.dump({'points': self.geometry[0].detach().cpu().tolist()}, f)
+            else:
+                raise RuntimeError("DeformablePoints.save_to_pickle(): {container} container type not recognized!")
+        pass
+
+    def save_to_mesh(self, filename, **kwargs):
+        points_count = self.geometry[0].shape[0]
+        meshio.write_points_cells(filename, self.geometry[0].detach().cpu().numpy(), [('polygon'+str(points_count), torch.arange(points_count).view(1, -1).numpy())], **kwargs)
 
     def compute_deformed(self, modules, solver, it, costs=None, intermediates=None):
         assert isinstance(costs, dict) or costs is None
@@ -79,6 +130,7 @@ class DeformablePoints(Deformable):
 
     def _to_deformed(self, gd):
         return (gd,)
+
 
 # class DeformablePolylines(DeformablePoints):
 #     def __init__(self, points, connections):
@@ -100,8 +152,11 @@ class DeformableMesh(DeformablePoints):
         super().__init__(points)
 
     @classmethod
-    def load_from_file(cls, filename):
-        pass
+    def load_from_file(cls, filename, dtype=None):
+        mesh = meshio.read(filename)
+        points = torch.tensor(mesh.points, dtype=dtype)
+        triangles = torch.tensor(mesh.cell_dict['triangle'], torch.int)
+        return cls(points, triangles)
 
     def save_to_file(self, filename):
         meshio.write_points_cells(filename, self.silent_module.manifold.gd.detach().numpy(), [('triangle', self.__triangles)])
@@ -129,7 +184,7 @@ class DeformableImage(Deformable):
         self.__pixel_extent = AABB(0., self.__shape[1]-1, 0., self.__shape[0]-1)
 
         if extent is None:
-            extent = AABB(0, 1., 0., 1.)
+            extent = AABB(0., 1., 0., 1.)
         elif isinstance(extent, str) and extent == 'match':
             extent = self.__pixel_extent
 
@@ -143,6 +198,10 @@ class DeformableImage(Deformable):
     @classmethod
     def load_from_file(cls, filename, origin='lower', device=None):
         return cls(load_greyscale_image(filename, origin=origin, device=device))
+
+    @classmethod
+    def load_from_pickle(cls, filename, origin='lower', device=None):
+        pass
 
     @property
     def geometry(self):
@@ -182,7 +241,6 @@ class DeformableImage(Deformable):
     output = property(__set_output, __get_output)
 
     def _backward_module(self):
-        # pixel_grid = pixels2points(self.__extent.fill_count(self.__shape), self.__shape, self.__extent)
         pixel_grid = pixels2points(self.__pixel_extent.fill_count(self.__shape), self.__shape, self.__extent)
         return SilentLandmarks(2, pixel_grid.shape[0], gd=pixel_grid)
 
@@ -233,14 +291,19 @@ def deformables_compute_deformed(deformables, modules, solver, it, costs=None, i
     shoot(Hamiltonian(compound), solver, it, intermediates=intermediates)
 
     # Regroup silent modules of each deformable thats need to shoot backward
-    backward_silent_modules = [deformable.silent_module for deformable in deformables if deformable._has_backward]
+    # backward_silent_modules = [deformable.silent_module for deformable in deformables if deformable._has_backward]
 
-    if backward_silent_modules is not None:
+    shoot_backward = any([deformable._has_backward for deformable in deformables])
+
+    forward_silent_modules = copy.deepcopy(silent_modules)
+    # forward_silent_modules = silent_modules
+
+    if shoot_backward:
         # Backward shooting is needed
 
         # Build/assemble the modules that will be shot backward
         backward_modules = [deformable._backward_module() for deformable in deformables if deformable._has_backward]
-        compound = CompoundModule([*backward_silent_modules, *backward_modules, *modules])
+        compound = CompoundModule([*silent_modules, *backward_modules, *modules])
 
         # Reverse the moments for backward shooting
         compound.manifold.negate_cotan()
@@ -254,11 +317,11 @@ def deformables_compute_deformed(deformables, modules, solver, it, costs=None, i
 
     # Ugly way to compute the list of deformed objects. Not intended to stay!
     deformed = []
-    for deformable in deformables:
+    for deformable, forward_silent_module in zip(deformables, forward_silent_modules):
         if deformable._has_backward:
             deformed.append(deformable._to_deformed(backward_modules.pop(0).manifold.gd))
         else:
-            deformed.append(deformable._to_deformed(deformable.silent_module.manifold.gd))
+            deformed.append(deformable._to_deformed(forward_silent_module.manifold.gd))
 
     return deformed
 
