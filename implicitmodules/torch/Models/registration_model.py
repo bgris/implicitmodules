@@ -8,7 +8,7 @@ from implicitmodules.torch.Models import BaseModel, deformables_compute_deformed
 
 
 class RegistrationModel(BaseModel):
-    def __init__(self, deformables, deformation_modules, attachments, fit_gd=None, lam=1., precompute_callback=None, other_parameters=None, multi):
+    def __init__(self, deformables, deformation_modules, attachments, fit_gd=None, lam=1., precompute_callback=None, other_parameters=None):
         if not isinstance(deformables, Iterable):
             deformables = [deformables]
 
