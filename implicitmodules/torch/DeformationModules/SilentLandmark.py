@@ -49,6 +49,10 @@ class SilentBase(DeformationModule):
 
     controls = property(__get_controls, fill_controls)
 
+    @property
+    def dim_cont(self):
+        return 0
+
     def fill_controls_zero(self):
         pass
 
@@ -71,6 +75,12 @@ class SilentBase(DeformationModule):
     def adjoint(self, manifold):
         return StructuredField_Null(self.__manifold.dim, device=self.device)
 
+    def autoaction(self):
+        return torch.tensor([])
+    
+    def costop_inv(self):
+        return torch.tensor([])
+        
 
 Silent = SilentBase.build
 

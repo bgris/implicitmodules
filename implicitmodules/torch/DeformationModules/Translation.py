@@ -6,7 +6,7 @@ from implicitmodules.torch.DeformationModules.Abstract import DeformationModule,
 from implicitmodules.torch.Kernels.kernels import K_xy, K_xx
 from implicitmodules.torch.Manifolds import Landmarks
 from implicitmodules.torch.StructuredFields import StructuredField_0
-
+from implicitmodules.torch.MultiShape.useful_functions import kronecker_I2
 
 class TranslationsBase(DeformationModule):
     """ Deformation module generating a sum of translations. """
@@ -58,6 +58,10 @@ class TranslationsBase(DeformationModule):
 
     controls = property(__get_controls, fill_controls)
 
+    @property
+    def dim_cont(self):
+        return self.__manifold.gd.shape[0] * self.dim
+
     def fill_controls_zero(self):
         self.__controls = torch.zeros_like(self.__manifold.gd, requires_grad=True)
 
@@ -94,10 +98,21 @@ class Translations_Torch(TranslationsBase):
     def compute_geodesic_control(self, man):
         vs = self.adjoint(man)
         K_q = K_xx(self.manifold.gd, self.sigma)
-
         controls, _ = torch.solve(vs(self.manifold.gd), K_q)
         self.controls = controls.contiguous()
+        
+    def costop_inv(self):
+        """ return the inverse of the operator Z such that (Zh, h) = 2 * cost(h) """
+        K_q = K_xx(self.manifold.gd, self.sigma).contiguous()
+        return  kronecker_I2(torch.inverse(K_q))
 
+    def autoaction(self):
+        """ computes matrix for autoaction = xi zeta Z^-1 zeta^\ast xi^\ast """
+        ## Kernelmatrix K_qq
+        return kronecker_I2(K_xx(self.manifold.gd, self.sigma)) 
+    
+
+    
 
 class Translations_KeOps(TranslationsBase):
     def __init__(self, manifold, sigma, label):

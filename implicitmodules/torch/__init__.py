@@ -5,5 +5,6 @@ import implicitmodules.torch.Kernels
 import implicitmodules.torch.Manifolds
 import implicitmodules.torch.Models
 import implicitmodules.torch.StructuredFields
+import implicitmodules.torch.Constraints
 
 

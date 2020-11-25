@@ -60,7 +60,6 @@ def _shoot_euler(h, solver, it, controls, intermediates):
             h.geodesic_controls()
 
         l = [*h.module.manifold.unroll_gd(), *h.module.manifold.unroll_cotan()]
-
         delta = list(grad(h(), l, create_graph=True, allow_unused=True))
 
         # Nulls are replaced by zero tensors

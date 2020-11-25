@@ -1,4 +1,5 @@
 from typing import Iterable
+import torch
 
 from implicitmodules.torch.DeformationModules.Abstract import DeformationModule
 from implicitmodules.torch.Manifolds import CompoundManifold
@@ -76,10 +77,18 @@ class CompoundModule(DeformationModule, Iterable):
         return [m.controls for m in self.__modules]
 
     def fill_controls(self, controls):
-        assert len(controls) == len(self.__modules)
-        [module.fill_controls(control) for module, control in zip(self.__modules, controls)]
+        #assert len(controls) == len(self.__modules)
+        #[module.fill_controls(control) for module, control in zip(self.__modules, controls)]
+        #assert len(controls) == self.nb_module
+        for i in range(len(controls)):
+            self.__modules[i].fill_controls(controls[i])
+
 
     controls = property(__get_controls, fill_controls)
+
+    @property
+    def dim_cont(self):
+        return sum([m.dim_cont for m in self.__modules])
 
     def fill_controls_zero(self):
         [module.fill_controls_zero() for module in self.__modules]
@@ -103,3 +112,37 @@ class CompoundModule(DeformationModule, Iterable):
     def field_generator(self):
         return SumStructuredField([m.field_generator() for m in self.__modules])
 
+    def costop_inv(self):
+        # blockdiagonal matrix of inverse cost operators of each module
+        Z = torch.zeros(self.dim_cont, self.dim_cont)
+        n = 0
+        for m in self.__modules:
+            ni = m.dim_cont
+            Z[n:n+ni, n:n+ni] = m.costop_inv().contiguous()
+            n = n + ni
+        return Z
+        
+    def autoaction(self):
+        if len(self.__modules)==1:
+            A =  self.__modules[0].autoaction()
+        else:
+            #TODO: seems to be an error in gradient 
+            dimgd = sum(self.manifold.numel_gd)
+            actionmat = torch.zeros(dimgd, self.dim_cont)
+            tmp = 0
+            controls = self.controls
+            for m in range(len(self.__modules)):
+                for i in range(self.__modules[m].dim_cont):
+                    self.fill_controls_zero()
+                    c = torch.eye(self.__modules[m].dim_cont, requires_grad=True)[i].view(self.modules[m].controls.shape)
+                    self.modules[m].fill_controls(c)
+                    speed = self.manifold.infinitesimal_action(self.__modules[m].field_generator())
+                    a = torch.cat([s.view(-1) for s in speed.tan])
+                    actionmat[:,tmp+i] = a 
+                tmp = tmp + self.__modules[m].dim_cont
+            
+            self.fill_controls(controls)
+            A = torch.mm(actionmat, torch.mm(self.costop_inv(), torch.transpose(actionmat, 0,1)))
+
+        return A
+    

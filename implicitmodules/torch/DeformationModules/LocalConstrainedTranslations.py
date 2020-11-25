@@ -62,6 +62,10 @@ class LocalConstrainedTranslationsBase(DeformationModule):
         return self.__manifold.dim
 
     @property
+    def dim_cont(self):
+        return 1
+
+    @property
     def sigma(self):
         return self.__sigma
 
@@ -112,6 +116,15 @@ class LocalConstrainedTranslations_Torch(LocalConstrainedTranslationsBase):
 
         return 0.5 * self.coeff * torch.dot(m.flatten(), vectors.flatten()).view([]) * self.controls * self.controls
 
+    def costop_inv(self):
+        support = self._f_support(self.manifold.gd)
+        vectors = self._f_vectors(self.manifold.gd)
+
+        K_q = K_xx(support, self.sigma)
+        m = torch.mm(K_q, vectors)
+
+        return 1./(self.coeff * torch.dot(m.flatten(), vectors.flatten()).view([]))
+
     def compute_geodesic_control(self, man):
         support = self._f_support(self.manifold.gd)
         vectors = self._f_vectors(self.manifold.gd)
@@ -124,6 +137,18 @@ class LocalConstrainedTranslations_Torch(LocalConstrainedTranslationsBase):
         co = self.coeff * torch.dot(m.flatten(), vectors.flatten())
 
         self.controls = man.inner_prod_field(v)/co
+
+        
+    def autoaction(self):
+        
+        support = self._f_support(self.manifold.gd)
+        vectors = self._f_vectors(self.manifold.gd)
+
+        K_q = K_xx(support, self.sigma)
+        m = torch.mm(K_q, vectors)
+        c = torch.dot(m.view(-1), vectors.view(-1)) * self.coeff
+        return (1. / c) * torch.mm(K_q, K_q.t())
+        #return (2. / self.__coeff) * torch.mm(K_q.view(2,1), K_q.view(1,2))
 
 
 class LocalConstrainedTranslations_KeOps(LocalConstrainedTranslationsBase):
