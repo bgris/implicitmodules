@@ -57,7 +57,7 @@ class RegistrationModelMultishape(BaseModel):
             #TODO: only one translation module
             #pts_boundaries = torch.cat([boundary.geometry[0] for boundary in boundaries])
             #background = Translation.Translations(pts_boundaries.shape[1], pts_boundaries.shape[0], self.__sigma_background, gd=pts_boundaries)
-            background = CompoundModule([Translation.Translations(boundary.geometry[0].shape[1], boundary.geometry[0].shape[0], self.__sigma_background, gd=boundary.geometry[0]) for boundary in boundaries])
+            background = CompoundModule([Translation.Translations(boundary.geometry[0].shape[1], boundary.geometry[0].shape[0], self.__sigma_background, gd=boundary.geometry[0].clone()) for boundary in boundaries])
             
         else:
             # no need for background module
@@ -69,7 +69,7 @@ class RegistrationModelMultishape(BaseModel):
  
         mods = []
         for deformable, mod, boundary in zip(self.__deformables, deformation_modules, boundaries):
-            mods.append(CompoundModule([deformable.silent_module, *mod, boundary.silent_module]))
+            mods.append(CompoundModule([deformable.silent_module.copy(), *mod, boundary.silent_module.copy()]))
         if background is not None:
             #mods.append(CompoundModule([background]))
             mods.append(background)
@@ -109,6 +109,14 @@ class RegistrationModelMultishape(BaseModel):
     @property
     def init_manifold(self):
         return self.__init_manifold
+    
+    def __get_init_manifold(self):
+        return self.__init_manifold
+
+    def fill_init_manifold(self, init_manifold):
+        self.__init_manifold = init_manifold
+
+    init_manifold = property(__get_init_manifold, fill_init_manifold)
 
     @property
     def init_parameters(self):

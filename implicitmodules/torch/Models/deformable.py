@@ -343,6 +343,9 @@ def deformables_compute_deformed_multishape(deformables, multishape, constraints
     Ham.geodesic_controls()
     if costs is not None:
         costs['deformation'] = Ham.module.cost()
+        
+    #print('__________')
+    #print(Ham.constraints(Ham.modules.manifold.infinitesimal_action(Ham.modules.field_generator())))
     
     # Forward shooting
     shoot(Ham, solver, it, intermediates=intermediates)

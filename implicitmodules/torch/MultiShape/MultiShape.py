@@ -93,12 +93,19 @@ class MultiShapeModules:
         M = self.autoaction()
         mat = constraints.matrixAMAs(M)
         self.__lam, _ = torch.solve(constr, mat)
-        
+                
         man = constraints.adjoint(self.__lam, self.__manifold)
-        man.negate_cotan
-        man.add_cotan(self.__manifold.cotan)
+        #man.negate_cotan
+        #man.add_cotan(self.__manifold.cotan)
         
+
+        man.negate_tan()
+        man.add_cotan(man.tan)
+        man.fill_tan_zeros()
+        
+       
         self.compute_geodesic_control(man)
+        
         
 
     def cost(self):

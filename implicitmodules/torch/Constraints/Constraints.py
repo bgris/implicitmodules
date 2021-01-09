@@ -43,8 +43,10 @@ class ConstraintsPointIdentityBase:
         if len(self.__indexes1) == 1:
             tan1 = manifolds[self.__indexes1[0]].tan
         else:
-            tan1 = manifolds[self.__indexes1[0]][self.__indexes1[1]].tan        
+            tan1 = manifolds[self.__indexes1[0]][self.__indexes1[1]].tan   
        
+        print('tan0', tan0)
+        print('tan1', tan1)
         return (tan0 - tan1).view(-1, 1)
     
     @property
@@ -104,6 +106,9 @@ class ConstraintsPointIdentityBackground(ConstraintsPointIdentityBase):
     def __init__(self, indexes_module, manifolds):  
         indexes_manifolds0 = [indexes_module, len(manifolds.manifolds[indexes_module].manifolds) - 1] 
         indexes_manifolds1 = [len(manifolds.manifolds) - 1 , indexes_module]
+        
+        #indexes_manifolds0 = [indexes_module, 0] 
+        #indexes_manifolds1 = [len(manifolds.manifolds) - 1 , indexes_module]
         super().__init__(indexes_manifolds0, indexes_manifolds1, manifolds)
         
         

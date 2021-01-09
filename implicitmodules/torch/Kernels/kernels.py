@@ -1,5 +1,5 @@
 import torch
-from pykeops.torch import Formula, kernel_formulas
+#from pykeops.torch import kernel_formulas #Formula, 
 
 
 def scal(x, y):
@@ -50,9 +50,9 @@ def gauss_kernel(x, k, sigma):
 
 
 # Adds the RBF kernel used by Implicitmodules into PyKeOps
-kernel_formulas['gaussian2'] = Formula(
-    formula_sum="Exp( -(WeightedSqDist({G},{X},{Y})*IntInv(2)))",
-    routine_sum=lambda gxmy2=None, **kwargs: (-gxmy2/2.).exp(),
-    formula_log="(-(WeightedSqDist({G},{X},{Y}))*IntInv(2))",
-    routine_log=lambda gxmy2=None, **kwargs: -gxmy2/2.)
+#kernel_formulas['gaussian2'] = Formula(
+#    formula_sum="Exp( -(WeightedSqDist({G},{X},{Y})*IntInv(2)))",
+#    routine_sum=lambda gxmy2=None, **kwargs: (-gxmy2/2.).exp(),
+#    formula_log="(-(WeightedSqDist({G},{X},{Y}))*IntInv(2))",
+#    routine_log=lambda gxmy2=None, **kwargs: -gxmy2/2.)
 

@@ -29,6 +29,14 @@ class Hamiltonian_multishape:
     @property
     def dim(self):
         return self.__module.dim
+    
+    @property
+    def constraints(self):
+        return self.__constraints
+    
+    @property
+    def modules(self):
+        return self.__modules    
 
     def __call__(self):
         """Computes the hamiltonian.
@@ -50,6 +58,7 @@ class Hamiltonian_multishape:
         print('print constraints')
         print(self.__constraints(self.__modules.manifold.infinitesimal_action(self.__modules.field_generator())))
         print('print constraints done')
+        
 
     def _apply_mom(self):
         """Apply the moment on the geodesic descriptors."""
