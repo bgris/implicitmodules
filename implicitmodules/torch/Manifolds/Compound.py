@@ -122,6 +122,9 @@ class CompoundManifold(BaseManifold):
     def fill_tan_zeros(self, requires_grad=True):
         [manifold.fill_tan_zeros(requires_grad=requires_grad) for manifold in self.__manifolds]
 
+    def fill_cotan_zeros(self, requires_grad=True):
+        [manifold.fill_cotan_zeros(requires_grad=requires_grad) for manifold in self.__manifolds]
+
 
     gd = property(__get_gd, fill_gd)
     tan = property(__get_tan, fill_tan)

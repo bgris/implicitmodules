@@ -113,14 +113,15 @@ class OptimizerScipy(BaseOptimizer):
         """Converts model parameters into a single state vector."""
         if not all(param.is_contiguous() for param in self.__parameters_to_list(self.model.parameters)):
             raise ValueError("Scipy optimization routines are only compatible with parameters given as *contiguous* tensors.")
-
+        #print('-- modele evaluation  ----')
         if grad:
             # print([param for param in self.__parameters_to_list(model.parameters)])
-            # print([param.grad for param in self.__parameters_to_list(model.parameters)])
+            #print([param.grad for param in self.__parameters_to_list(model.parameters)])
             tensors = [param.grad.data.flatten().cpu().numpy() for param in self.__parameters_to_list(model.parameters)]
         else:
             tensors = [param.detach().flatten().cpu().numpy() for param in self.__parameters_to_list(model.parameters)]
 
+        #print('-- modele evaluation done ----')
         return np.ascontiguousarray(np.hstack(tensors), dtype='float64')
 
     def __numpy_to_model(self, x):

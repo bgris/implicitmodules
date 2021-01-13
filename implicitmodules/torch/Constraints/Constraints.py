@@ -45,8 +45,8 @@ class ConstraintsPointIdentityBase:
         else:
             tan1 = manifolds[self.__indexes1[0]][self.__indexes1[1]].tan   
        
-        print('tan0', tan0)
-        print('tan1', tan1)
+        #print('tan0', tan0)
+        #print('tan1', tan1)
         return (tan0 - tan1).view(-1, 1)
     
     @property
@@ -56,10 +56,10 @@ class ConstraintsPointIdentityBase:
     
     def adjoint(self, lam, manifold):
         man = manifold.clone()
-        shape = man[self.__indexes0[0]][self.__indexes0[1]].tan.shape
-        man.fill_tan_zeros()
-        man[self.__indexes0[0]][self.__indexes0[1]].fill_tan(lam.view(shape))
-        man[self.__indexes1[0]][self.__indexes1[1]].fill_tan(-lam.view(shape))
+        shape = man[self.__indexes0[0]][self.__indexes0[1]].cotan.shape
+        man.fill_cotan_zeros()
+        man[self.__indexes0[0]][self.__indexes0[1]].fill_cotan(lam.view(shape))
+        man[self.__indexes1[0]][self.__indexes1[1]].fill_cotan(-lam.view(shape))
         return man
     
     def matrixAMAs(self, M):
@@ -135,11 +135,11 @@ class CompoundConstraints(ConstraintsPointIdentityBase):
     
     def adjoint(self, lam, manifold):
         man = manifold.clone()
-        man.fill_tan_zeros()
+        man.fill_cotan_zeros()
         ind = 0
         for constraint in self.__constraints:
             dim = constraint.dimconstraint
-            man.add_tan(constraint.adjoint(lam[ind:ind + dim], manifold).tan)
+            man.add_cotan(constraint.adjoint(lam[ind:ind + dim], manifold).cotan)
             ind = ind + dim
         return man
         
