@@ -55,9 +55,9 @@ class Hamiltonian_multishape:
         Computes the geodesic controls of the hamiltonian's module.
         """
         self.__modules.compute_geodesic_variables(self.__constraints)
-        print('print constraints')
-        print(self.__constraints(self.__modules.manifold.infinitesimal_action(self.__modules.field_generator())))
-        print('print constraints done')
+        #print('print constraints')
+        #print(self.__constraints(self.__modules.manifold.infinitesimal_action(self.__modules.field_generator())))
+        #print('print constraints done')
         
 
     def _apply_mom(self):

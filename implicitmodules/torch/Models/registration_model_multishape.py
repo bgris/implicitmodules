@@ -75,7 +75,7 @@ class RegistrationModelMultishape(BaseModel):
             mods.append(background)
         
         self.__modules = mods #MultiShape.MultiShapeModules(mods, sigma_background)
-        self.__init_manifold = MultishapeCompoundManifold.MultishapeCompoundManifold([mod.manifold for mod in self.__modules])
+        self.__init_manifold = MultishapeCompoundManifold.MultishapeCompoundManifold([mod.manifold.clone(False) for mod in self.__modules])
         #self.__init_manifold = MultiShape.MultiShapeModules(self.__modules, sigma_background).manifold
         #[print(manifold) for manifold in self.__init_manifold]
         #print(self.__init_manifold[2].manifolds)
@@ -211,7 +211,7 @@ class RegistrationModelMultishape(BaseModel):
 
         if total_cost.requires_grad and backpropagation:
             # Compute backward and return costs as a dictionary of floats
-            total_cost.backward()
+            total_cost.backward(retain_graph=True)
             return dict([(key, costs[key].item()) for key in costs])
         else:
             return costs
