@@ -13,6 +13,7 @@ class GlobalTranslation(DeformationModule):
         self.__controls = torch.zeros(dim)
         self.__coeff = coeff
         self.__manifold = EmptyManifold(dim)
+        self.__dim = dim
 
     def __str__(self):
         outstr = "Global translation\n"
@@ -36,6 +37,14 @@ class GlobalTranslation(DeformationModule):
     @property
     def manifold(self):
         return self.__manifold
+    
+    @property
+    def dim(self):
+        return self.__dim
+    
+    @property
+    def dim_cont(self):
+        return self.__dim
 
     def __get_controls(self):
         return self.__controls
@@ -60,6 +69,9 @@ class GlobalTranslation(DeformationModule):
 
     def cost(self):
         return 0.5 * self.__coeff * torch.dot(self.__controls, self.__controls)
+    
+    def costop_inv(self):
+        return torch.tensor([[2/self.__coeff]])
 
     def compute_geodesic_control(self, man):
         """Computes geodesic control from StructuredField vs."""
