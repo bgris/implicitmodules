@@ -71,7 +71,7 @@ class GlobalTranslation(DeformationModule):
         return 0.5 * self.__coeff * torch.dot(self.__controls, self.__controls)
     
     def costop_inv(self):
-        return torch.tensor([[2/self.__coeff]])
+        return torch.tensor([[1./self.__coeff]])
 
     def compute_geodesic_control(self, man):
         """Computes geodesic control from StructuredField vs."""
