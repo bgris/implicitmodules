@@ -4,11 +4,11 @@ import torch
 
 from implicitmodules.torch.DeformationModules import CompoundModule
 from implicitmodules.torch.Manifolds import CompoundManifold
-from implicitmodules.torch.Models import BaseModel, deformables_compute_deformed
+from implicitmodules.torch.Models import BaseModel, deformables_compute_deformed, deformables_compute_deformed_new
 
 
 class RegistrationModel(BaseModel):
-    def __init__(self, deformables, deformation_modules, attachments, fit_gd=None, lam=1., precompute_callback=None, other_parameters=None):
+    def __init__(self, deformables, deformation_modules, attachments, fit_gd=None, lam=1., precompute_callback=None, other_parameters=None, new='False'):
         if not isinstance(deformables, Iterable):
             deformables = [deformables]
 
@@ -26,6 +26,7 @@ class RegistrationModel(BaseModel):
         self.__precompute_callback = precompute_callback
         self.__fit_gd = fit_gd
         self.__lam = lam
+        self.__new = new
 
         if other_parameters is None:
             other_parameters = []
@@ -153,7 +154,10 @@ class RegistrationModel(BaseModel):
             if precompute_cost is not None:
                 costs['precompute'] = precompute_cost
 
-        deformed_sources = self.compute_deformed(solver, it, costs=costs)
+        if self.__new == True:
+            deformed_sources = self.compute_deformed_new(solver, it, costs=costs)
+        else:
+            deformed_sources = self.compute_deformed(solver, it, costs=costs)
         costs['attach'] = self.__lam * self._compute_attachment_cost(deformed_sources, target)
 
         # if torch.any(torch.isnan(torch.tensor(list(costs.values())))):
@@ -171,6 +175,34 @@ class RegistrationModel(BaseModel):
 
     def _compute_attachment_cost(self, deformed_sources, targets, deformation_costs=None):
         return sum([attachment(deformed_source, target.geometry) for attachment, deformed_source, target in zip(self.__attachments, deformed_sources, targets)])
+
+    def compute_deformed_new(self, solver, it, costs=None, intermediates=None):
+        """ Compute the deformed source.
+
+        Parameters
+        ----------
+        solver : str
+            Solver to use for the shooting.
+        it : int
+            Number of iterations the integration method will do.
+        costs : dict, default=None
+            If provided, will be filled with the costs associated to the deformation.
+
+        Returns
+        -------
+        list
+            List of deformed sources.
+        """
+
+        compound_module = CompoundModule(self.__deformation_modules)
+        compound_module.manifold.fill_gd([manifold.gd for manifold in self.__init_manifold[len(self.__deformables):]])
+        compound_module.manifold.fill_cotan([manifold.cotan for manifold in self.__init_manifold[len(self.__deformables):]])
+
+        for deformable, deformable_manifold in zip(self.__deformables, self.__init_manifold):
+            deformable.silent_module.manifold.fill(deformable_manifold)
+
+        return deformables_compute_deformed_new(self.__deformables, compound_module, solver, it, costs=costs, intermediates=intermediates)
+
 
     def compute_deformed(self, solver, it, costs=None, intermediates=None):
         """ Compute the deformed source.

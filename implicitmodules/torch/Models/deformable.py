@@ -39,6 +39,10 @@ class Deformable:
         raise NotImplementedError()
 
 
+    def _to_deformed_new(self):
+        raise NotImplementedError()
+
+
 class DeformablePoints(Deformable):
     def __init__(self, points):
         super().__init__(Landmarks(points.shape[1], points.shape[0], gd=points))
@@ -131,6 +135,9 @@ class DeformablePoints(Deformable):
     def _to_deformed(self, gd):
         return (gd,)
 
+    def _to_deformed_new(self, gd):
+        return (gd,)
+
 
 # class DeformablePolylines(DeformablePoints):
 #     def __init__(self, points, connections):
@@ -172,6 +179,9 @@ class DeformableMesh(DeformablePoints):
     def _to_deformed(self, gd):
         return (gd, self.__triangles)
 
+    def _to_deformed_new(self, gd):
+        return (gd, self.__triangles)
+
 
 class DeformableImage(Deformable):
     def __init__(self, bitmap, output='bitmap', extent=None):
@@ -190,7 +200,8 @@ class DeformableImage(Deformable):
 
         self.__extent = extent
 
-        pixel_points = pixels2points(self.__extent.fill_count(self.__shape), self.__shape, self.__extent)
+        #pixel_points = pixels2points(self.__extent.fill_count(self.__shape), self.__shape, self.__extent)
+        pixel_points = pixels2points(self.__pixel_extent.fill_count(self.__shape), self.__shape, self.__extent)
 
         self.__bitmap = bitmap
         super().__init__(Landmarks(2, pixel_points.shape[0], gd=pixel_points))
@@ -219,6 +230,10 @@ class DeformableImage(Deformable):
     @property
     def extent(self):
         return self.__extent
+    
+    @property
+    def pixel_extent(self):
+        return self.__pixel_extent
 
     @property
     def points(self):
@@ -243,6 +258,76 @@ class DeformableImage(Deformable):
     def _backward_module(self):
         pixel_grid = pixels2points(self.__pixel_extent.fill_count(self.__shape), self.__shape, self.__extent)
         return SilentLandmarks(2, pixel_grid.shape[0], gd=pixel_grid)
+
+    def compute_deformed_new(self, modules, solver, it, costs=None, intermediates=None):
+        assert isinstance(costs, dict) or costs is None
+        assert isinstance(intermediates, dict) or intermediates is None
+
+        # Forward shooting
+        compound_modules = [self.silent_module, *modules]
+        compound = CompoundModule(compound_modules)
+
+        shoot(Hamiltonian(compound), solver, it, intermediates=intermediates)
+        
+        gridpts_defo = self.silent_module.manifold.gd
+
+
+        if costs is not None:
+            costs['deformation'] = compound.cost()
+
+        return self._to_deformed_new(gridpts_defo)
+
+    def _to_deformed_new(self, gd):
+        
+        gridpts_defo = gd
+        gridpts_defo_vec = gridpts_defo.unsqueeze(0).transpose(1,2)
+        
+
+        silent_pixel_grid = self._backward_module()
+        gridpts = silent_pixel_grid.manifold.gd
+        
+        normdiff = torch.sum( (gridpts_defo_vec -gridpts.unsqueeze(2))**2, dim=1)
+        #ind0 = torch.argmin( normdiff, dim=1)
+        _, ind_nearest = torch.topk(normdiff, k=3, dim=1, largest=False)
+        
+        #project each point on the segment of the two nearest points
+        diff_nearest1 = gridpts_defo[ind_nearest[:,1]] - gridpts_defo[ind_nearest[:,0]]
+        diff_pts1 = gridpts_defo[ind_nearest[:,0]] - gridpts
+        ps1 = torch.sum(diff_nearest1 * diff_pts1, dim=1)
+        no1 = torch.sum(diff_nearest1 * diff_nearest1, dim=1)
+        t1 = - ps1/no1
+        t1 = t1.unsqueeze(1)
+        
+        
+        diff_nearest2 = gridpts_defo[ind_nearest[:,2]] - gridpts_defo[ind_nearest[:,0]]
+        diff_pts2 = gridpts_defo[ind_nearest[:,0]] - gridpts
+        ps2 = torch.sum(diff_nearest2 * diff_pts2, dim=1)
+        no2 = torch.sum(diff_nearest2 * diff_nearest2, dim=1)
+        t2 = - ps2/no2
+        t2 = t2.unsqueeze(1)
+
+        #proj = gridpts_defo[ind_nearest[:,0]] + 0.5*t1*diff_nearest1 + 0.5*t2*diff_nearest2
+        
+        #gridpts_defo_inv = torch.mean(gridpts[ind_nearest[:,:]], 1)
+        gridpts_defo_inv = gridpts[ind_nearest[:,0]]  + 0.5 * t1 * (gridpts[ind_nearest[:,1]]  - gridpts[ind_nearest[:,0]] )  + 0.5 * t2 * (gridpts[ind_nearest[:,2]]  - gridpts[ind_nearest[:,0]] )
+        
+        if self.__output == 'bitmap':
+            return (deformed_intensities(gridpts_defo_inv, self.__bitmap, self.__extent), )
+        elif self.__output == 'points':
+            deformed_bitmap = deformed_intensities(gridpts_defo_inv, self.__bitmap, self.__extent)
+            return (gd, deformed_bitmap.flatten()/torch.sum(deformed_bitmap))
+        else:
+            raise ValueError()
+
+    def _to_deformed(self, gd):
+        if self.__output == 'bitmap':
+            return (deformed_intensities(gd, self.__bitmap, self.__extent), )
+        elif self.__output == 'points':
+            deformed_bitmap = deformed_intensities(gd, self.__bitmap, self.__extent)
+            return (gd, deformed_bitmap.flatten()/torch.sum(deformed_bitmap))
+        else:
+            raise ValueError()
+
 
     def compute_deformed(self, modules, solver, it, costs=None, intermediates=None):
         assert isinstance(costs, dict) or costs is None
@@ -269,14 +354,32 @@ class DeformableImage(Deformable):
 
         return self._to_deformed(silent_pixel_grid.manifold.gd)
 
-    def _to_deformed(self, gd):
-        if self.__output == 'bitmap':
-            return (deformed_intensities(gd, self.__bitmap, self.__extent), )
-        elif self.__output == 'points':
-            deformed_bitmap = deformed_intensities(gd, self.__bitmap, self.__extent)
-            return (gd, deformed_bitmap.flatten()/torch.sum(deformed_bitmap))
-        else:
-            raise ValueError()
+
+            
+            
+def deformables_compute_deformed_new(deformables, modules, solver, it, costs=None, intermediates=None):
+    assert isinstance(costs, dict) or costs is None
+    assert isinstance(intermediates, dict) or intermediates is None
+
+    # Regroup silent modules of each deformable and build a compound module
+    silent_modules = [deformable.silent_module for deformable in deformables]
+    compound = CompoundModule([*silent_modules, *modules])
+
+    # Forward shooting
+    shoot(Hamiltonian(compound), solver, it, intermediates=intermediates)
+
+
+    # For now, we need to compute the deformation cost after each shooting (and not before any shooting) for computation tree reasons
+    if costs is not None:
+        costs['deformation'] = compound.cost()
+
+    # Ugly way to compute the list of deformed objects. Not intended to stay!
+    deformed = []
+    for deformable, silent_module in zip(deformables, silent_modules):
+        deformed.append(deformable._to_deformed_new(silent_module.manifold.gd))
+
+    return deformed
+
 
 
 def deformables_compute_deformed(deformables, modules, solver, it, costs=None, intermediates=None):
@@ -354,20 +457,42 @@ def deformables_compute_deformed_multishape(deformables, multishape, constraints
     shoot_backward = any([deformable._has_backward for deformable in deformables])
 
     #TODO backward
-    #forward_silent_modules = copy.deepcopy(silent_modules)
+    forward_silent_modules = copy.deepcopy(silent_modules)
     #print(forward_silent_modules)
-    #if shoot_backward:
-    #    # Backward shooting is needed
-    #
-    #    # Build/assemble the modules that will be shot backward
-    #    backward_modules = [deformable._backward_module() for deformable in deformables if deformable._has_backward]
-    #    compound = CompoundModule([*silent_modules, *backward_modules, *modules])
-    #
-    #    # Reverse the moments for backward shooting
-    #    compound.manifold.negate_cotan()
-    #
-    #    # Backward shooting
-    #    shoot(Hamiltonian(compound), solver, it)
+    if shoot_backward:
+        # Backward shooting is needed
+        #TODO: for the moment only one deformable which is an image
+        
+        # Build/assemble the modules that will be shot backward
+        
+        # build grid points
+        backward_module = deformables[0]._backward_module()
+        grid_pts = backward_module.manifold.gd
+        
+        labels = model.labels
+        grid_pts_deformed = torch.empty([labels.shape[0], backward_module.dim])
+        for i, mod in enumerate(multishape.modules):
+            grid_pts_deformed[labels==i] = mod[0].manifold.gd
+          
+        gridpts_defo_vec = grid_pts_deformed.unsqueeze(2)
+        
+        normdiff = torch.sum( (gridpts_defo_vec -grid_pts.unsqueeze(0).transpose(1,2))**2, dim=1)
+            
+        _, ind_nearest = torch.topk(normdiff, k=1, dim=1, largest=False)
+        
+        labels_grid = labels[ind_nearest]
+        
+        mod_list = []
+        for mod in multishape:
+            mod_list.append()
+        
+        compound = CompoundModule([*silent_modules, *backward_modules, *modules])
+    
+        # Reverse the moments for backward shooting
+        compound.manifold.negate_cotan()
+    
+        # Backward shooting
+        shoot(Hamiltonian(compound), solver, it)
 
     # For now, we need to compute the deformation cost after each shooting (and not before any shooting) for computation tree reasons
 

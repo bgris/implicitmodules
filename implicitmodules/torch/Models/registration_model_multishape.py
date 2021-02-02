@@ -2,9 +2,9 @@ from collections import Iterable, OrderedDict
 
 import torch
 
-from implicitmodules.torch.DeformationModules import CompoundModule, Translation
+from implicitmodules.torch.DeformationModules import CompoundModule, Translation, SilentLandmarks
 from implicitmodules.torch.Manifolds import CompoundManifold
-from implicitmodules.torch.Models import BaseModel, deformables_compute_deformed, deformables_compute_deformed_multishape
+from implicitmodules.torch.Models import BaseModel, deformables_compute_deformed, deformables_compute_deformed_multishape, DeformableImage
 from implicitmodules.torch.MultiShape import MultiShape #import MultiShapeModules
 from implicitmodules.torch.MultiShape import MultishapeCompoundManifold
 
@@ -45,12 +45,42 @@ class RegistrationModelMultishape(BaseModel):
 
         self.__init_other_parameters = other_parameters
         
-        
+        mods = []
+        self.__labels = []
         if backgroundtype=='dense':
-            # background module is made of dense translations on an area
-            # maybe depends on respective lengths of boundaries and deformables ? what if attachment depends on a boundary?
-            #TODO
-            raise NotImplementedError()
+            # background module is made of dense translations on an area defined by the images in deformable 
+            # 
+            #build points of local translations
+            # TODO: DOES NOT WORK IF OVERLAP 
+            # TODO: ONLY one deformable (image) for the moment
+            for deformable in deformables:
+                pts = torch.tensor([])
+                if isinstance(deformable, dm.Models.DeformableImage):
+                    pts = torch.cat([pts,deformable.silent_module.manifold.gd.clone()])
+                    
+            # keep only points inside each boundary
+            labels = torch.zeros(pts.shape[0], dtype=int) + len(boundaries)
+            pts0 = pts.clone()
+            for i, boundary in enumerate(boundaries):
+                lab = boundary.isin_label(pts)
+                labels[lab==True] = i
+                pts_list.append(pts[lab==True].contiguous())
+                #pts = pts[label==False].contiguous()
+            # last one with points outside all boundaries
+            pts_list.append(pts[labels==len(boundaries)]) 
+            
+            self.__labels = labels
+            
+            for mod, boundary, pt in zip(deformation_modules, boundaries, pts[:-1]):
+                #if isinstance(deformable, DeformableImage):
+                mods.append(CompoundModule([SilentLandmarks(2, pt.shape[0], gd=pt.clone()), *mod, boundary.silent_module.copy()]))
+                #else:
+                #    mods.append(CompoundModule([deformable.silent_module.copy(), *mod, boundary.silent_module.copy()]))
+            background_list = [Translation.Translations(boundary.geometry[0].shape[1], boundary.geometry[0].shape[0], self.__sigma_background, gd=boundary.geometry[0].clone()) for boundary in boundaries]
+            background_list.append(CompoundModule(Translation.Translations(pts[-1].shape[1], pts[-1].shape[0], self.__sigma_background, gd=pts[-1].clone())))
+            
+            mods.append(CompoundModule(background_list))
+            
         elif backgroundtype=='boundary':
             #background module is needed and is made of translations supported by boundaries
             # Maybe check if all constraints are without dense background
@@ -59,20 +89,19 @@ class RegistrationModelMultishape(BaseModel):
             #background = Translation.Translations(pts_boundaries.shape[1], pts_boundaries.shape[0], self.__sigma_background, gd=pts_boundaries)
             background = CompoundModule([Translation.Translations(boundary.geometry[0].shape[1], boundary.geometry[0].shape[0], self.__sigma_background, gd=boundary.geometry[0].clone()) for boundary in boundaries])
             
+            for deformable, mod, boundary in zip(self.__deformables, deformation_modules, boundaries):
+                mods.append(CompoundModule([deformable.silent_module.copy(), *mod, boundary.silent_module.copy()]))
+            mods.append(background)
         else:
             # no need for background module
             background = None
 
+            for deformable, mod, boundary in zip(self.__deformables, deformation_modules, boundaries):
+                mods.append(CompoundModule([deformable.silent_module.copy(), *mod, boundary.silent_module.copy()]))
         #self.__modules =[*[deformable.silent_module, mod for deformable in self.__deformables], *deformation_modules, background]
         
         
- 
-        mods = []
-        for deformable, mod, boundary in zip(self.__deformables, deformation_modules, boundaries):
-            mods.append(CompoundModule([deformable.silent_module.copy(), *mod, boundary.silent_module.copy()]))
-        if background is not None:
-            #mods.append(CompoundModule([background]))
-            mods.append(background)
+
         
         self.__modules = mods #MultiShape.MultiShapeModules(mods, sigma_background)
         self.__init_manifold = MultishapeCompoundManifold.MultishapeCompoundManifold([mod.manifold.clone(False) for mod in self.__modules])
@@ -89,6 +118,10 @@ class RegistrationModelMultishape(BaseModel):
     @property
     def modules(self):
         return self.__modules
+
+    @property
+    def labels(self):
+        return self.__labels
 
     @property
     def deformation_modules(self):
