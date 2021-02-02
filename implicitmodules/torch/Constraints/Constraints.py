@@ -99,20 +99,96 @@ class ConstraintsPointIdentityBackground(ConstraintsPointIdentityBase):
     """
     Identity between one specified module (by an index) and the background one on a specified boundary (same index as the module)
     """
-    def __init__(self, indexes_module, dimcontraint):  
-        """
-        indexes_module is a list of 3 integers: 
-            [0] is the index of the module (or boundary)
-            [1] is the length of manifolds.manifolds[indexes_module]  
-            [2] is the length of manifolds.manifolds
-        """
-        indexes_manifolds0 = [indexes_module[0], indexes_module[1] - 1] 
-        indexes_manifolds1 = [indexes_module[2] - 1 , indexes_module[0]]
+    def __init__(self, indexes_module, dimconstraint):  
+
+        self.__dimconstraint = dimconstraint
+        self.__index = indexes_module
+        #indexes_manifolds0 = [indexes_module[0], indexes_module[1] - 1] 
+        #indexes_manifolds1 = [indexes_module[2] - 1 , indexes_module[0]]
+        #indexes_manifolds0 = [indexes_module[0],  - 1] 
+        #indexes_manifolds1 = [- 1 , indexes_module[0]]
         
         #indexes_manifolds0 = [indexes_module, 0] 
         #indexes_manifolds1 = [len(manifolds.manifolds) - 1 , indexes_module]
-        super().__init__(indexes_manifolds0, indexes_manifolds1, dimcontraint)
+        #super().__init__(indexes_manifolds0, indexes_manifolds1, dimconstraint)
+
         
+    def generate_indexes(self, manifolds):
+        
+        indexes_manifolds0 = [self.__index, len(manifolds.manifolds[self.__index].manifolds) - 1] 
+        indexes_manifolds1 = [len(manifolds.manifolds) - 1 , self.__index]
+        return [indexes_manifolds0, indexes_manifolds1]
+        
+    def __call__(self, manifolds):
+        """
+        returns a tensor
+        """
+        indexes_manifolds0, indexes_manifolds1 = self.generate_indexes(manifolds)
+        
+        if len(indexes_manifolds0) == 1:
+            tan0 = manifolds[indexes_manifolds0[0]].tan
+        else:
+            tan0 = manifolds[indexes_manifolds0[0]][indexes_manifolds0[1]].tan        
+        
+        if len(indexes_manifolds1) == 1:
+            tan1 = manifolds[indexes_manifolds1[0]].tan
+        else:
+            tan1 = manifolds[indexes_manifolds1[0]][indexes_manifolds1[1]].tan   
+       
+        #print('tan0', tan0)
+        #print('tan1', tan1)
+        return (tan0 - tan1).view(-1, 1)
+    
+    @property
+    def dimconstraint(self):
+        return self.__dimconstraint
+    
+    def adjoint(self, lam, manifolds):
+        indexes_manifolds0, indexes_manifolds1 = self.generate_indexes(manifolds)
+        
+        man = manifolds.clone()
+        shape = man[indexes_manifolds0[0]][indexes_manifolds0[1]].cotan.shape
+        man.fill_cotan_zeros()
+        man[indexes_manifolds0[0]][indexes_manifolds0[1]].fill_cotan(lam.view(shape))
+        man[indexes_manifolds1[0]][indexes_manifolds1[1]].fill_cotan(-lam.view(shape))
+        return man
+    
+    def matrixAMAs(self, M, manifolds):
+        """
+        returns A_q M A_q^\ast (corresponds to extracting sub matrices of M and sum/substract : 
+        M_11 -M_21 -M_12 + M22)
+        """
+        indexes_manifolds0, indexes_manifolds1 = self.generate_indexes(manifolds)
+                
+        c0 = sum([sum(man.numel_gd) for man in manifolds[:indexes_manifolds0[0]]])
+        
+        if len(indexes_manifolds0) == 1:
+            c1 = 0
+            d0 = sum(manifolds[indexes_manifolds0[0]].numel_gd)
+            c2 = 0
+        else:
+            c1 = sum([sum(man.numel_gd) for man in manifolds[indexes_manifolds0[0]][:indexes_manifolds0[1]]])
+            c2 = sum([sum(man.numel_gd) for man in manifolds[indexes_manifolds0[0]][indexes_manifolds0[1]+1:]])
+            d0 = sum(manifolds[indexes_manifolds0[0]][indexes_manifolds0[1]].numel_gd)
+        
+        c3 = sum([sum(man.numel_gd) for man in manifolds[indexes_manifolds0[0] + 1:indexes_manifolds1[0]]])
+        
+        if len(indexes_manifolds1) == 1:
+            c4 = 0
+            c5 = 0
+            d1 = sum(manifolds[indexes_manifolds1[0]].numel_gd)
+        else:
+            c4 = sum([sum(man.numel_gd) for man in manifolds[indexes_manifolds1[0]][:indexes_manifolds1[1]]])
+            c5 = sum([sum(man.numel_gd) for man in manifolds[indexes_manifolds1[0]][indexes_manifolds1[1]+1:]])
+            d1 = sum(manifolds[indexes_manifolds1[0]][indexes_manifolds1[1]].numel_gd)
+        
+        c6 = sum([sum(man.numel_gd) for man in manifolds[indexes_manifolds1[0]:]])
+        assert (d0==d1)
+        
+        ind0 = c0 + c1
+        ind1 = c0 + c1 + d0 + c2 + c3 + c4
+        return M[ind0:ind0 + d0, ind0:ind0 + d0] -M[ind1:ind1+d1, ind0:ind0 + d0]-M[ind1:ind1+d1, ind0:ind0 + d0] + M[ind1:ind1+d1, ind1:ind1+d1]
+
         
 class ConstraintsPointIdentity(ConstraintsPointIdentityBase):
     """
