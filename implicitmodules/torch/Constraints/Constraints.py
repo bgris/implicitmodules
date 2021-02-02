@@ -14,7 +14,7 @@ class ConstraintsPointIdentityBase:
     """
     Identity between the 'tan' component of the manifolds two specified manifolds (by an index) 
     """
-    def __init__(self, indexes_manifolds0, indexes_manifolds1, manifolds): 
+    def __init__(self, indexes_manifolds0, indexes_manifolds1, dimconstraint): 
         """
         manifolds is a multi-shape compound manifold
         indexes_manifolds is a tuple of 2 indexes
@@ -25,10 +25,7 @@ class ConstraintsPointIdentityBase:
             self.__indexes0 = indexes_manifolds0
             self.__indexes1 = indexes_manifolds1
 
-           
-        self.__manifolds = manifolds
-        self.__dimconstraint = sum(self.__manifolds[self.__indexes0[0]][self.__indexes0[1]].numel_gd)    
-        
+        self.__dimconstraint = dimconstraint
         #super().__init__()
         
     def __call__(self, manifolds):
@@ -53,7 +50,6 @@ class ConstraintsPointIdentityBase:
     def dimconstraint(self):
         return self.__dimconstraint
     
-    
     def adjoint(self, lam, manifold):
         man = manifold.clone()
         shape = man[self.__indexes0[0]][self.__indexes0[1]].cotan.shape
@@ -62,35 +58,35 @@ class ConstraintsPointIdentityBase:
         man[self.__indexes1[0]][self.__indexes1[1]].fill_cotan(-lam.view(shape))
         return man
     
-    def matrixAMAs(self, M):
+    def matrixAMAs(self, M, manifolds):
         """
         returns A_q M A_q^\ast (corresponds to extracting sub matrices of M and sum/substract : 
         M_11 -M_21 -M_12 + M22)
         """
         
-        c0 = sum([sum(man.numel_gd) for man in self.__manifolds[:self.__indexes0[0]]])
+        c0 = sum([sum(man.numel_gd) for man in manifolds[:self.__indexes0[0]]])
         
         if len(self.__indexes0) == 1:
             c1 = 0
-            d0 = sum(self.__manifolds[self.__indexes0[0]].numel_gd)
+            d0 = sum(manifolds[self.__indexes0[0]].numel_gd)
             c2 = 0
         else:
-            c1 = sum([sum(man.numel_gd) for man in self.__manifolds[self.__indexes0[0]][:self.__indexes0[1]]])
-            c2 = sum([sum(man.numel_gd) for man in self.__manifolds[self.__indexes0[0]][self.__indexes0[1]+1:]])
-            d0 = sum(self.__manifolds[self.__indexes0[0]][self.__indexes0[1]].numel_gd)
+            c1 = sum([sum(man.numel_gd) for man in manifolds[self.__indexes0[0]][:self.__indexes0[1]]])
+            c2 = sum([sum(man.numel_gd) for man in manifolds[self.__indexes0[0]][self.__indexes0[1]+1:]])
+            d0 = sum(manifolds[self.__indexes0[0]][self.__indexes0[1]].numel_gd)
         
-        c3 = sum([sum(man.numel_gd) for man in self.__manifolds[self.__indexes0[0] + 1:self.__indexes1[0]]])
+        c3 = sum([sum(man.numel_gd) for man in manifolds[self.__indexes0[0] + 1:self.__indexes1[0]]])
         
         if len(self.__indexes1) == 1:
             c4 = 0
             c5 = 0
-            d1 = sum(self.__manifolds[self.__indexes1[0]].numel_gd)
+            d1 = sum(manifolds[self.__indexes1[0]].numel_gd)
         else:
-            c4 = sum([sum(man.numel_gd) for man in self.__manifolds[self.__indexes1[0]][:self.__indexes1[1]]])
-            c5 = sum([sum(man.numel_gd) for man in self.__manifolds[self.__indexes1[0]][self.__indexes1[1]+1:]])
-            d1 = sum(self.__manifolds[self.__indexes1[0]][self.__indexes1[1]].numel_gd)
+            c4 = sum([sum(man.numel_gd) for man in manifolds[self.__indexes1[0]][:self.__indexes1[1]]])
+            c5 = sum([sum(man.numel_gd) for man in manifolds[self.__indexes1[0]][self.__indexes1[1]+1:]])
+            d1 = sum(manifolds[self.__indexes1[0]][self.__indexes1[1]].numel_gd)
         
-        c6 = sum([sum(man.numel_gd) for man in self.__manifolds[self.__indexes1[0]:]])
+        c6 = sum([sum(man.numel_gd) for man in manifolds[self.__indexes1[0]:]])
         assert (d0==d1)
         
         ind0 = c0 + c1
@@ -103,13 +99,13 @@ class ConstraintsPointIdentityBackground(ConstraintsPointIdentityBase):
     """
     Identity between one specified module (by an index) and the background one on a specified boundary (same index as the module)
     """
-    def __init__(self, indexes_module, manifolds):  
+    def __init__(self, indexes_module, dimcontraint, manifolds):  
         indexes_manifolds0 = [indexes_module, len(manifolds.manifolds[indexes_module].manifolds) - 1] 
         indexes_manifolds1 = [len(manifolds.manifolds) - 1 , indexes_module]
         
         #indexes_manifolds0 = [indexes_module, 0] 
         #indexes_manifolds1 = [len(manifolds.manifolds) - 1 , indexes_module]
-        super().__init__(indexes_manifolds0, indexes_manifolds1, manifolds)
+        super().__init__(indexes_manifolds0, indexes_manifolds1, dimcontraint)
         
         
 class ConstraintsPointIdentity(ConstraintsPointIdentityBase):
@@ -144,14 +140,14 @@ class CompoundConstraints(ConstraintsPointIdentityBase):
         return man
         
 
-    def matrixAMAs(self, M):   
+    def matrixAMAs(self, M, manifolds):   
         #mat = torch.zeros(self.dimconstraint, self.dimconstraint, requires_grad=True)
-        mat = self.__constraints[0].matrixAMAs(M)
+        mat = self.__constraints[0].matrixAMAs(M, manifolds)
         ind = mat.shape[0]
         
         for i in range(1, len(self.__constraints)):
             dim = self.__constraints[i].dimconstraint
-            mat = torch.cat([torch.cat([mat, torch.zeros(ind, dim)], dim=1), torch.cat([torch.zeros(dim, ind),self.__constraints[i].matrixAMAs(M)], dim=1)])
+            mat = torch.cat([torch.cat([mat, torch.zeros(ind, dim)], dim=1), torch.cat([torch.zeros(dim, ind),self.__constraints[i].matrixAMAs(M, manifolds)], dim=1)])
             ind = ind + dim
         return mat
         

@@ -91,7 +91,7 @@ class MultiShapeModules:
         constr = constraints(a)
         
         M = self.autoaction()
-        mat = constraints.matrixAMAs(M)
+        mat = constraints.matrixAMAs(M, self.__manifold)
         self.__lam, _ = torch.solve(constr, mat)
                 
         man = constraints.adjoint(self.__lam, self.__manifold)
