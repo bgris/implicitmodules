@@ -99,9 +99,15 @@ class ConstraintsPointIdentityBackground(ConstraintsPointIdentityBase):
     """
     Identity between one specified module (by an index) and the background one on a specified boundary (same index as the module)
     """
-    def __init__(self, indexes_module, dimcontraint, manifolds):  
-        indexes_manifolds0 = [indexes_module, len(manifolds.manifolds[indexes_module].manifolds) - 1] 
-        indexes_manifolds1 = [len(manifolds.manifolds) - 1 , indexes_module]
+    def __init__(self, indexes_module, dimcontraint):  
+        """
+        indexes_module is a list of 3 integers: 
+            [0] is the index of the module (or boundary)
+            [1] is the length of manifolds.manifolds[indexes_module]  
+            [2] is the length of manifolds.manifolds
+        """
+        indexes_manifolds0 = [indexes_module[0], indexes_module[1] - 1] 
+        indexes_manifolds1 = [indexes_module[2] - 1 , indexes_module[0]]
         
         #indexes_manifolds0 = [indexes_module, 0] 
         #indexes_manifolds1 = [len(manifolds.manifolds) - 1 , indexes_module]
