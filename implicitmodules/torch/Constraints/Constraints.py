@@ -116,7 +116,14 @@ class ConstraintsPointIdentityBackground(ConstraintsPointIdentityBase):
     def generate_indexes(self, manifolds):
         
         indexes_manifolds0 = [self.__index, len(manifolds.manifolds[self.__index].manifolds) - 1] 
-        indexes_manifolds1 = [len(manifolds.manifolds) - 1 , self.__index]
+        ind = 0
+        ind_tot = 0
+        for i in range(self.__index):
+            ind = ind + manifolds.manifolds[i][-1].gd.shape[0]
+            ind_tot = ind_tot + manifolds.manifolds[i][-1].numel_gd[0]
+            
+        #indexes_manifolds1 = [len(manifolds.manifolds) - 1 , self.__index]
+        indexes_manifolds1 = [len(manifolds.manifolds) - 1 , ind, ind + manifolds.manifolds[self.__index][-1].gd.shape[0], ind_tot, ind_tot + manifolds.manifolds[self.__index][-1].numel_gd[0]]
         return [indexes_manifolds0, indexes_manifolds1]
         
     def __call__(self, manifolds):
@@ -124,7 +131,6 @@ class ConstraintsPointIdentityBackground(ConstraintsPointIdentityBase):
         returns a tensor
         """
         indexes_manifolds0, indexes_manifolds1 = self.generate_indexes(manifolds)
-        
         if len(indexes_manifolds0) == 1:
             tan0 = manifolds[indexes_manifolds0[0]].tan
         else:
@@ -133,7 +139,7 @@ class ConstraintsPointIdentityBackground(ConstraintsPointIdentityBase):
         if len(indexes_manifolds1) == 1:
             tan1 = manifolds[indexes_manifolds1[0]].tan
         else:
-            tan1 = manifolds[indexes_manifolds1[0]][indexes_manifolds1[1]].tan   
+            tan1 = manifolds[indexes_manifolds1[0]][0].tan[indexes_manifolds1[1]:indexes_manifolds1[2]]
        
         #print('tan0', tan0)
         #print('tan1', tan1)
@@ -149,8 +155,10 @@ class ConstraintsPointIdentityBackground(ConstraintsPointIdentityBase):
         man = manifolds.clone()
         shape = man[indexes_manifolds0[0]][indexes_manifolds0[1]].cotan.shape
         man.fill_cotan_zeros()
+        lam_ext = torch.zeros_like(man[indexes_manifolds1[0]][0].cotan).view(-1)
+        lam_ext[indexes_manifolds1[3]:indexes_manifolds1[4]] = lam.view(-1)
         man[indexes_manifolds0[0]][indexes_manifolds0[1]].fill_cotan(lam.view(shape))
-        man[indexes_manifolds1[0]][indexes_manifolds1[1]].fill_cotan(-lam.view(shape))
+        man[indexes_manifolds1[0]][0].fill_cotan(-lam_ext.view(man[indexes_manifolds1[0]][0].cotan.shape))
         return man
     
     def matrixAMAs(self, M, manifolds):
@@ -174,15 +182,21 @@ class ConstraintsPointIdentityBackground(ConstraintsPointIdentityBase):
         c3 = sum([sum(man.numel_gd) for man in manifolds[indexes_manifolds0[0] + 1:indexes_manifolds1[0]]])
         
         if len(indexes_manifolds1) == 1:
+            #ERROR
             c4 = 0
             c5 = 0
             d1 = sum(manifolds[indexes_manifolds1[0]].numel_gd)
         else:
-            c4 = sum([sum(man.numel_gd) for man in manifolds[indexes_manifolds1[0]][:indexes_manifolds1[1]]])
-            c5 = sum([sum(man.numel_gd) for man in manifolds[indexes_manifolds1[0]][indexes_manifolds1[1]+1:]])
-            d1 = sum(manifolds[indexes_manifolds1[0]][indexes_manifolds1[1]].numel_gd)
+            #c4 = sum([sum(man.numel_gd) for man in manifolds[indexes_manifolds1[0]][:indexes_manifolds1[1]]])
+            #c5 = sum([sum(man.numel_gd) for man in manifolds[indexes_manifolds1[0]][indexes_manifolds1[1]+1:]])
+            c4 = indexes_manifolds1[3]
+            
+            #d1 = sum(manifolds[indexes_manifolds1[0]][indexes_manifolds1[1]].numel_gd)
+            d1 = indexes_manifolds1[4] - c4
         
         c6 = sum([sum(man.numel_gd) for man in manifolds[indexes_manifolds1[0]:]])
+        #print(d0)
+        #print(d1)
         assert (d0==d1)
         
         ind0 = c0 + c1

@@ -81,6 +81,19 @@ class TranslationsBase(DeformationModule):
         return manifold.cot_to_vs(self.__sigma, backend=self.backend)
 
 
+    def costop_inv(self):
+        """ return the inverse of the operator Z such that (Zh, h) = 2 * cost(h) """
+        #print('translation cost op inv')
+        #print(self.manifold.gd.shape)
+        K_q = K_xx(self.manifold.gd, self.sigma).contiguous()
+        return  kronecker_I2(torch.inverse(K_q))
+
+    def autoaction(self):
+        """ computes matrix for autoaction = xi zeta Z^-1 zeta^\ast xi^\ast """
+        ## Kernelmatrix K_qq
+        return kronecker_I2(K_xx(self.manifold.gd, self.sigma)) 
+    
+    
 class Translations_Torch(TranslationsBase):
     def __init__(self, manifold, sigma, label):
         super().__init__(manifold, sigma, label)
@@ -101,16 +114,6 @@ class Translations_Torch(TranslationsBase):
         controls, _ = torch.solve(vs(self.manifold.gd), K_q)
         self.controls = controls.contiguous()
         
-    def costop_inv(self):
-        """ return the inverse of the operator Z such that (Zh, h) = 2 * cost(h) """
-        K_q = K_xx(self.manifold.gd, self.sigma).contiguous()
-        return  kronecker_I2(torch.inverse(K_q))
-
-    def autoaction(self):
-        """ computes matrix for autoaction = xi zeta Z^-1 zeta^\ast xi^\ast """
-        ## Kernelmatrix K_qq
-        return kronecker_I2(K_xx(self.manifold.gd, self.sigma)) 
-    
 
     
 

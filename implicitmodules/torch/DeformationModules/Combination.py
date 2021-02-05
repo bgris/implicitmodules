@@ -123,6 +123,13 @@ class CompoundModule(DeformationModule, Iterable):
         return Z
         
     def autoaction(self):
+        # count non silent modules
+        #c = 0
+        #ind = 0
+        #for mod in self.__modules:
+        #    if (isinstance(mod, dm.DeformationModules.SilentLandmark.SilentBase)==False):
+        #        c = c + 1
+        
         if len(self.__modules)==1:
             A =  self.__modules[0].autoaction()
         else:

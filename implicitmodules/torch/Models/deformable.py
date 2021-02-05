@@ -12,6 +12,7 @@ from implicitmodules.torch.DeformationModules import SilentBase, CompoundModule,
 from implicitmodules.torch.Manifolds import Landmarks
 from implicitmodules.torch.Utilities import deformed_intensities, AABB, load_greyscale_image, pixels2points
 from implicitmodules.torch.MultiShape import MultiShapeHamiltonian
+from implicitmodules.torch.MultiShape import MultiShape
 
 class Deformable:
     def __init__(self, manifold, module_label=None):
@@ -430,7 +431,7 @@ def deformables_compute_deformed(deformables, modules, solver, it, costs=None, i
 
 
 
-def deformables_compute_deformed_multishape(deformables, multishape, constraints, solver, it, costs=None, intermediates=None):
+def deformables_compute_deformed_multishape(deformables, multishape, constraints, solver, it, costs=None, intermediates=None, labels=None):
     assert isinstance(costs, dict) or costs is None
     assert isinstance(intermediates, dict) or intermediates is None
 
@@ -457,7 +458,7 @@ def deformables_compute_deformed_multishape(deformables, multishape, constraints
     shoot_backward = any([deformable._has_backward for deformable in deformables])
 
     #TODO backward
-    forward_silent_modules = copy.deepcopy(silent_modules)
+    #forward_silent_modules = copy.deepcopy(silent_modules)
     #print(forward_silent_modules)
     if shoot_backward:
         # Backward shooting is needed
@@ -469,43 +470,60 @@ def deformables_compute_deformed_multishape(deformables, multishape, constraints
         backward_module = deformables[0]._backward_module()
         grid_pts = backward_module.manifold.gd
         
-        labels = model.labels
+        #labels = model.labels
         grid_pts_deformed = torch.empty([labels.shape[0], backward_module.dim])
-        for i, mod in enumerate(multishape.modules):
+        for i, mod in enumerate(multishape.modules[:-1]):
             grid_pts_deformed[labels==i] = mod[0].manifold.gd
-          
+        
+        i = len(multishape.modules) -1
+        
+        grid_pts_deformed[labels==i] = multishape.modules[i][-1].manifold.gd  
         gridpts_defo_vec = grid_pts_deformed.unsqueeze(2)
         
         normdiff = torch.sum( (gridpts_defo_vec -grid_pts.unsqueeze(0).transpose(1,2))**2, dim=1)
             
         _, ind_nearest = torch.topk(normdiff, k=1, dim=1, largest=False)
         
-        labels_grid = labels[ind_nearest]
+        labels_grid = labels[ind_nearest].view(-1)
         
         mod_list = []
-        for mod in multishape:
-            mod_list.append()
+        for i, mod in enumerate(multishape.modules[:-1]):
+            pt = grid_pts[labels_grid==i].contiguous()
+            #mod_list.append(CompoundModule([silent_modules[i], SilentLandmarks(2, pt.shape[0], gd=pt.clone()), *mod.modules[1:]]))
+            mod_list.append(CompoundModule([mod.modules[0], SilentLandmarks(2, pt.shape[0], gd=pt.clone()), *mod.modules[1:]]))
         
-        compound = CompoundModule([*silent_modules, *backward_modules, *modules])
-    
+        i = len(multishape.modules) -1
+        pt = grid_pts[labels_grid==i].contiguous()    
+        mod_list.append(CompoundModule([*multishape.modules[-1].modules, SilentLandmarks(2, pt.shape[0], gd=pt.clone())]))
+        
         # Reverse the moments for backward shooting
-        compound.manifold.negate_cotan()
-    
+        [compound.manifold.negate_cotan() for compound in mod_list]
+        multishape_bk = MultiShape.MultiShapeModules(mod_list, multishape.sigma_background, multishape.backgroundtype)
+        
+        #TODO constraints must be independent from manifold
+        Ham = MultiShapeHamiltonian.Hamiltonian_multishape(multishape, constraints)
         # Backward shooting
-        shoot(Hamiltonian(compound), solver, it)
+        shoot(Ham, solver, it)
+        
+        grid_pts_deformed_bk = torch.empty([labels.shape[0], backward_module.dim])
+        for i, mod in enumerate(multishape_bk.modules):
+            grid_pts_deformed_bk[labels==i] = mod[1].manifold.gd
+          
+        
+        
 
     # For now, we need to compute the deformation cost after each shooting (and not before any shooting) for computation tree reasons
 
 
     # Ugly way to compute the list of deformed objects. Not intended to stay!
     deformed = []
-    for i in range(len(silent_modules)):
+    #for i in range(len(silent_modules)):
     #for deformable, forward_silent_module in zip(deformables, forward_silent_modules):
-        deformable = deformables[i]
+    for i, deformable in enumerate(deformables):
+        #forward_silent_module = forward_silent_modules[i]
         forward_silent_module = silent_modules[i]
-        
         if deformable._has_backward:
-            deformed.append(deformable._to_deformed(backward_modules.pop(0).manifold.gd))
+            deformed.append(deformable._to_deformed(grid_pts_deformed_bk))
         else:
             #deformed.append(deformable._to_deformed(deformable.silent_module.manifold.gd))
             deformed.append(deformable._to_deformed(forward_silent_module.manifold.gd))

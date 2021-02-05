@@ -6,7 +6,7 @@ from implicitmodules.torch.DeformationModules import CompoundModule
 from implicitmodules.torch.Manifolds import CompoundManifold
 
 class MultiShapeModules:
-    def __init__(self, module_list, sigma_background):
+    def __init__(self, module_list, sigma_background, backgroundtype=None):
         """
         module_list is a list of compound modules
         
@@ -20,7 +20,7 @@ class MultiShapeModules:
         #self.__list_gd_dim = [sum([man.numel_gd for man in mans]) for mans in self.__manifold]
         self.__list_gd_dim = [sum(man.numel_gd) for man in self.__manifold]
         self.__dim_tot_gd = sum(self.__list_gd_dim)
-    
+        self.__backgroundtype = backgroundtype
     
     def copy(self):
         return Multishape([mod.copy() for mod in self.__module_list], self.__sigma_background)
@@ -38,8 +38,16 @@ class MultiShapeModules:
     lam = property(__get_lam, fill_lam)
     
     @property
+    def sigma_background(self):
+        return self.__sigma_background
+    
+    @property
     def modules(self):
         return self.__modules
+    
+    @property
+    def backgroundtype(self):
+        return self.__backgroundtype
     
     @property
     def manifold(self):
@@ -116,12 +124,27 @@ class MultiShapeModules:
     def autoaction(self):
         mat = torch.zeros([self.__dim_tot_gd, self.__dim_tot_gd])
         c = 0
-        for i in range(self.__nb_modules):
+        for i in range(self.__nb_modules - 1):
             dim_gd = self.__list_gd_dim[i]
             A = self.__modules[i].autoaction()
             mat[c:c+dim_gd, c:c+dim_gd] = A
             c = c + dim_gd
-            
+        
+        # bad fix to avoid extra computation for background module
+        if self.__backgroundtype is None:
+            i = self.__nb_modules - 1
+            dim_gd = self.__list_gd_dim[i]
+            A = self.__modules[i].autoaction()
+            mat[c:c+dim_gd, c:c+dim_gd] = A
+            c = c + dim_gd    
+        else:
+            i = self.__nb_modules - 1
+            A = self.__modules[i][0].autoaction()
+            dim_gd = A.shape[0]
+            mat[c:c+dim_gd, c:c+dim_gd] = A
+            c = c + dim_gd
+        
+        
         return mat
     
     

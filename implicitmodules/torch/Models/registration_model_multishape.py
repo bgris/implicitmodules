@@ -10,7 +10,7 @@ from implicitmodules.torch.MultiShape import MultishapeCompoundManifold
 
 
 class RegistrationModelMultishape(BaseModel):
-    def __init__(self, boundaries, deformables, deformation_modules, attachments, sigma_background, fit_gd=None, lam=1., precompute_callback=None, other_parameters=None, constraints=None, backgroundtype='boundary'):
+    def __init__(self, boundaries, deformables, deformation_modules, attachments, sigma_background, fit_gd=None, lam=1., precompute_callback=None, other_parameters=None, constraints=None, backgroundtype=None):
         
         """
         deformation_modules is a list of N lists of modules, one for each shape
@@ -38,6 +38,7 @@ class RegistrationModelMultishape(BaseModel):
         self.__lam = lam
         self.__constraints = constraints
         self.__sigma_background = sigma_background
+        self.__backgroundtype = backgroundtype
 
         if other_parameters is None:
             other_parameters = []
@@ -54,32 +55,46 @@ class RegistrationModelMultishape(BaseModel):
             # TODO: DOES NOT WORK IF OVERLAP 
             # TODO: ONLY one deformable (image) for the moment
             for deformable in deformables:
-                pts = torch.tensor([])
-                if isinstance(deformable, dm.Models.DeformableImage):
-                    pts = torch.cat([pts,deformable.silent_module.manifold.gd.clone()])
-                    
-            # keep only points inside each boundary
-            labels = torch.zeros(pts.shape[0], dtype=int) + len(boundaries)
-            pts0 = pts.clone()
-            for i, boundary in enumerate(boundaries):
-                lab = boundary.isin_label(pts)
-                labels[lab==True] = i
-                pts_list.append(pts[lab==True].contiguous())
-                #pts = pts[label==False].contiguous()
-            # last one with points outside all boundaries
-            pts_list.append(pts[labels==len(boundaries)]) 
+                #pts = torch.tensor([])
+                if isinstance(deformable, DeformableImage):                    
+                    #pts = torch.cat([pts,deformable.silent_module.manifold.gd.clone()])
+                    pts_translation = deformable.extent.fill_uniform_density(density=1./(0.5*self.__sigma_background)**2)
+                    #pts_translation = deformable.silent_module.manifold.gd.clone()
+                    pts_grid = deformable.silent_module.manifold.gd.clone()
+                    # keep only points inside each boundary
+                    labels_grid = torch.zeros(pts_grid.shape[0], dtype=int) + len(boundaries)
+                    labels_translation = torch.zeros(pts_translation.shape[0], dtype=int) + len(boundaries)
+                    pts_list_grid = []
+                    pts_list_translation = []
+                    for i, boundary in enumerate(boundaries):
+                        lab_grid = boundary.isin_label(pts_grid)
+                        labels_grid[lab_grid==True] = i
+                        pts_list_grid.append(pts_grid[lab_grid==True].contiguous())
+                        lab_translation = boundary.isin_label(pts_translation)
+                        labels_translation[lab_translation==True] = i
+                        pts_list_translation.append(pts_translation[lab_translation==True].contiguous())
+                        #pts_translation = pts_translation[label_translation==False].contiguous()
+                    # last one with points outside all boundaries
+                    pts_list_grid.append(pts_grid[labels_grid==len(boundaries)]) 
+                    pts_list_translation.append(pts_translation[labels_translation==len(boundaries)]) 
+                    #pts_list.append(pts_translation) 
             
-            self.__labels = labels
+                    self.__labels = labels_grid
             
-            for mod, boundary, pt in zip(deformation_modules, boundaries, pts[:-1]):
+            for mod, boundary, pt in zip(deformation_modules, boundaries, pts_list_grid[:-1]):
                 #if isinstance(deformable, DeformableImage):
-                mods.append(CompoundModule([SilentLandmarks(2, pt.shape[0], gd=pt.clone()), *mod, boundary.silent_module.copy()]))
+                mods.append(CompoundModule([SilentLandmarks(pt.shape[1], pt.shape[0], gd=pt.clone()), *mod, boundary.silent_module.copy()]))
                 #else:
                 #    mods.append(CompoundModule([deformable.silent_module.copy(), *mod, boundary.silent_module.copy()]))
-            background_list = [Translation.Translations(boundary.geometry[0].shape[1], boundary.geometry[0].shape[0], self.__sigma_background, gd=boundary.geometry[0].clone()) for boundary in boundaries]
-            background_list.append(CompoundModule(Translation.Translations(pts[-1].shape[1], pts[-1].shape[0], self.__sigma_background, gd=pts[-1].clone())))
+            background_pts = torch.cat([boundary.geometry[0].clone() for boundary in boundaries])
+            background_pts = torch.cat([background_pts, pts_list_translation[-1].clone()])
+            # pts_list_grid[-1].clone()])
+                                         
+            #background_list = [Translation.Translations(boundary.geometry[0].shape[1], boundary.geometry[0].shape[0], self.__sigma_background, gd=boundary.geometry[0].clone()) for boundary in boundaries]
+            #background_list.append(Translation.Translations(pts_list_translation[-1].shape[1], pts_list_translation[-1].shape[0], self.__sigma_background, gd=pts_list_translation[-1].clone()))
+            #background_list.append(SilentLandmarks(pts_list_grid[-1].shape[1], pts_list_grid[-1].shape[0], gd=pts_list_grid[-1].clone()))
             
-            mods.append(CompoundModule(background_list))
+            mods.append(CompoundModule([Translation.Translations(background_pts.shape[1], background_pts.shape[0], self.__sigma_background, gd=background_pts.clone()), SilentLandmarks(pts_list_grid[-1].shape[1], pts_list_grid[-1].shape[0], gd=pts_list_grid[-1].clone()) ]))
             
         elif backgroundtype=='boundary':
             #background module is needed and is made of translations supported by boundaries
@@ -87,8 +102,10 @@ class RegistrationModelMultishape(BaseModel):
             #TODO: only one translation module
             #pts_boundaries = torch.cat([boundary.geometry[0] for boundary in boundaries])
             #background = Translation.Translations(pts_boundaries.shape[1], pts_boundaries.shape[0], self.__sigma_background, gd=pts_boundaries)
-            background = CompoundModule([Translation.Translations(boundary.geometry[0].shape[1], boundary.geometry[0].shape[0], self.__sigma_background, gd=boundary.geometry[0].clone()) for boundary in boundaries])
+            background_pts = torch.cat([boundary.geometry[0].clone() for boundary in boundaries])
             
+            #background = CompoundModule([Translation.Translations(boundary.geometry[0].shape[1], boundary.geometry[0].shape[0], self.__sigma_background, gd=boundary.geometry[0].clone()) for boundary in boundaries])
+            background = CompoundModule([Translation.Translations(background_pts.shape[1], background_pts.shape[0], self.__sigma_background, gd=background_pts.clone())])
             for deformable, mod, boundary in zip(self.__deformables, deformation_modules, boundaries):
                 mods.append(CompoundModule([deformable.silent_module.copy(), *mod, boundary.silent_module.copy()]))
             mods.append(background)
@@ -271,11 +288,11 @@ class RegistrationModelMultishape(BaseModel):
         """
         
         
-        multishape = MultiShape.MultiShapeModules(self.__modules, self.__sigma_background)
+        multishape = MultiShape.MultiShapeModules(self.__modules, self.__sigma_background, self.__backgroundtype)
         
         multishape.manifold.fill_gd(self.__init_manifold.gd)
         multishape.manifold.fill_cotan(self.__init_manifold.cotan)
         
         
-        return deformables_compute_deformed_multishape(self.__deformables, multishape, self.__constraints, solver, it, costs=costs, intermediates=intermediates)
+        return deformables_compute_deformed_multishape(self.__deformables, multishape, self.__constraints, solver, it, costs=costs, intermediates=intermediates, labels=self.__labels)
 
