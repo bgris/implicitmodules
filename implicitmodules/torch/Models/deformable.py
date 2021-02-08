@@ -506,11 +506,11 @@ def deformables_compute_deformed_multishape(deformables, multishape, constraints
         shoot(Ham, solver, it)
         
         grid_pts_deformed_bk = torch.empty([labels.shape[0], backward_module.dim])
-        for i, mod in enumerate(multishape_bk.modules):
+        for i, mod in enumerate(multishape_bk.modules[:-1]):
             grid_pts_deformed_bk[labels==i] = mod[1].manifold.gd
-          
-        
-        
+
+        i = len(multishape_bk.modules) -1
+        grid_pts_deformed_bk[labels==i] = multishape_bk.modules[-1].modules[-1].manifold.gd
 
     # For now, we need to compute the deformation cost after each shooting (and not before any shooting) for computation tree reasons
 
