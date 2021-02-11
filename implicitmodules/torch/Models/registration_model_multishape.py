@@ -10,11 +10,13 @@ from implicitmodules.torch.MultiShape import MultishapeCompoundManifold
 
 
 class RegistrationModelMultishape(BaseModel):
-    def __init__(self, boundaries, deformables, deformation_modules, attachments, sigma_background, fit_gd=None, lam=1., precompute_callback=None, other_parameters=None, constraints=None, backgroundtype='boundary'):
+    def __init__(self, boundaries, deformables, deformation_modules, attachments, sigma_background=None, fit_gd=None, lam=1., precompute_callback=None, other_parameters=None, constraints=None, backgroundtype='boundary', segmented_target_objects=True):
         
         """
         deformation_modules is a list of N lists of modules, one for each shape
         deformables is a list of lists ????? deformables. The first N correspond to the N shapes, the first element of each list is the boundary
+        
+        If segmented_target_objects=False, the target is one deformable (not separated in several shapes)
         
         """
         
@@ -38,6 +40,7 @@ class RegistrationModelMultishape(BaseModel):
         self.__lam = lam
         self.__constraints = constraints
         self.__sigma_background = sigma_background
+        self.__segmented_target_objects = segmented_target_objects
 
         if other_parameters is None:
             other_parameters = []
@@ -122,6 +125,10 @@ class RegistrationModelMultishape(BaseModel):
     @property
     def labels(self):
         return self.__labels
+    
+    @property
+    def segmented_target_objects(self):
+        return self.__segmented_target_objects
 
     @property
     def deformation_modules(self):
@@ -222,8 +229,8 @@ class RegistrationModelMultishape(BaseModel):
 
         if not isinstance(target, Iterable):
             target = [target]
-
-        assert len(target) == len(self.__deformables)
+        if self.__segmented_target_objects==True:
+            assert len(target) == len(self.__deformables)
 
         # Call precompute callback if available
         precompute_cost = None
@@ -250,7 +257,11 @@ class RegistrationModelMultishape(BaseModel):
             return costs
 
     def _compute_attachment_cost(self, deformed_sources, targets, deformation_costs=None):
-        return sum([attachment(deformed_source, target.geometry) for attachment, deformed_source, target in zip(self.__attachments, deformed_sources, targets)])
+        
+        if self.__segmented_target_objects==True:
+            return sum([attachment(deformed_source, target.geometry) for attachment, deformed_source, target in zip(self.__attachments, deformed_sources, targets)])
+        else:
+            return self.__attachments(deformed_sources, targets[0].geometry)
 
     def compute_deformed(self, solver, it, costs=None, intermediates=None):
         """ Compute the deformed source.
