@@ -79,6 +79,11 @@ class ImplicitModule1Base(DeformationModule):
     def dim_controls(self):
         return self.__dim_controls
 
+    @property
+    def dim_cont(self):
+        return self.__dim_controls
+    
+    
     def __get_controls(self):
         return self.__controls
 
@@ -117,6 +122,15 @@ class ImplicitModule1Base(DeformationModule):
     def adjoint(self, manifold):
         return manifold.cot_to_vs(self.__sigma, backend=self.backend)
 
+    def costop_inv(self):
+        if self.__dim_controls == 1:
+            self.fill_controls(torch.tensor(1.,requires_grad=True))
+            cost = self.cost()
+            return 2./cost
+        else:
+            NotImplementedError()
+            
+        
 
 class ImplicitModule1_Torch(ImplicitModule1Base):
     def __init__(self, manifold, sigma, C, nu, coeff, label):
