@@ -220,7 +220,7 @@ class ConstraintsPointSlinding:
         diff0[-1] = pts0[-1] - pts0[-2]
         no0 = torch.norm(diff0, 1)
         tan0 = diff0/no0
-        normals0 = torch.flip(tan0)
+        normals0 = torch.flip(tan0, [1])
         normals0[:,0] = -normals0[:,0]
         
         
@@ -231,7 +231,7 @@ class ConstraintsPointSlinding:
         diff1[-1] = pts1[-1] - pts1[-2]
         no1 = torch.norm(diff1, 1)
         tan1 = diff1/no1
-        normals1 = torch.flip(tan1)
+        normals1 = torch.flip(tan1, [1])
         normals1[:,0] = -normals1[:,0]
         
         return [normals0, normals1]
@@ -241,7 +241,7 @@ class ConstraintsPointSlinding:
         """
         returns a tensor
         """
-        normals0, normals1 = self.compute_normals
+        normals0, normals1 = self.compute_normals(manifolds)
         
         if len(self.__indexes0) == 1:
             tan0 = manifolds[self.__indexes0[0]].tan
@@ -262,7 +262,7 @@ class ConstraintsPointSlinding:
         return self.__dimconstraint
     
     def adjoint(self, lam, manifold):
-        normals0, normals1 = self.compute_normals
+        normals0, normals1 = self.compute_normals(manifold)
         
         man = manifold.clone()
         shape = man[self.__indexes0[0]][self.__indexes0[1]].cotan.shape
@@ -276,7 +276,8 @@ class ConstraintsPointSlinding:
         returns A_q M A_q^\ast (corresponds to extracting sub matrices of M and sum/substract : 
         M_11 -M_21 -M_12 + M22)
         """
-        
+        #print('----M----')
+        #print(M)
         c0 = sum([sum(man.numel_gd) for man in manifolds[:self.__indexes0[0]]])
         
         if len(self.__indexes0) == 1:
@@ -305,20 +306,26 @@ class ConstraintsPointSlinding:
         ind0 = c0 + c1
         ind1 = c0 + c1 + d0 + c2 + c3 + c4
         
-        normals0, normals1 = self.compute_normals
+        normals0, normals1 = self.compute_normals(manifolds)
+        #print('---normals0---')
+        #print(normals0)
+        #print('---normals1---')
+        #print(normals1)
         n, d = normals0.shape
         
         M00 = M[ind0:ind0 + d0, ind0:ind0 + d0].reshape(n,d,n,d).transpose(1,2)
         S00 = torch.einsum('ij, ikjl, kl -> ik', normals0, M00, normals0)
         
         M01 = M[ind0:ind0 + d0, ind1:ind1+d1].reshape(n,d,n,d).transpose(1,2)
-        S01 = torch.einsum('ij, ikjl, kl -> ik', normals0, M00, normals1)
+        S01 = torch.einsum('ij, ikjl, kl -> ik', normals0, M01, normals1)
         
         M10 = M[ind1:ind1+d1, ind0:ind0 + d0].reshape(n,d,n,d).transpose(1,2)
-        S10 = torch.einsum('ij, ikjl, kl -> ik', normals1, M00, normals0)
+        S10 = torch.einsum('ij, ikjl, kl -> ik', normals1, M10, normals0)
         
         M11 = M[ind1:ind1+d1, ind1:ind1+d1].reshape(n,d,n,d).transpose(1,2)
-        S11 = torch.einsum('ij, ikjl, kl -> ik', normals1, M00, normals1)
+        S11 = torch.einsum('ij, ikjl, kl -> ik', normals1, M11, normals1)
+        #print('---AMA---')
+        #print(S00 -S01-S10 + S11)
         
         return S00 -S01-S10 + S11
         
