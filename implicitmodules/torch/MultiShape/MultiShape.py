@@ -36,7 +36,20 @@ class MultiShapeModules:
             self.__lam = lam
         
     lam = property(__get_lam, fill_lam)
-    
+     
+    def __get_controls(self):
+        return [m.controls for m in self.__modules]
+
+    def fill_controls(self, controls):
+        #assert len(controls) == len(self.__modules)
+        #[module.fill_controls(control) for module, control in zip(self.__modules, controls)]
+        #assert len(controls) == self.nb_module
+        for i in range(len(controls)):
+            self.__modules[i].fill_controls(controls[i])
+
+
+    controls = property(__get_controls, fill_controls)
+
     @property
     def modules(self):
         return self.__modules

@@ -82,7 +82,7 @@ def _shoot_euler(h, solver, it, controls, intermediates):
 
         if intermediates is not None:
             intermediates['states'].append(h.module.manifold.clone(requires_grad=False))
-            intermediates['controls'].append(list(map(lambda x: x.detach().clone(), h.module.controls)))
+            intermediates['controls'].append(list(map(lambda x: [xi.detach().clone() for xi in x], h.module.controls)))
 
 
 def _shoot_torchdiffeq(h, solver, it, controls, intermediates):
