@@ -103,12 +103,26 @@ class DeformableImage(DeformablePoints):
     def _to_deformed(self, gd):
         if not self.__backward:
             pixel_grid = pixels2points(self.__pixel_extent.fill_count(self.__shape, device=self.silent_module.device), self.__shape, self.__extent)
-
+            # We project pixel_grid on gd ie for each i, find ind_nearest[i] so that gd[ind_nearest[i]]
+            # is the point of gd the closest to pixel_grid[i]
             normdiff = torch.sum((gd.unsqueeze(0).transpose(1, 2) - pixel_grid.unsqueeze(2))**2, dim=1)
-            # _, ind_nearest = torch.topk(normdiff, k=1, dim=1, largest=False)
-            ind_nearest = torch.argmin(normdiff, dim=1, keepdim=True)
-
-            gd = torch.mean(pixel_grid[ind_nearest], 1)
+            kmax = 3
+            _, ind_nearest2 = torch.topk(normdiff, k=kmax, dim=1, largest=False)
+            #ind_nearest = torch.argmin(normdiff, dim=1, keepdim=True)
+            
+            
+            # We use this to approximate \varphi^{-1} (pixel_grid) because gd(t=0) = pixel_grid so 
+            #  \varphi^{-1} (pixel_grid[i]) = pixel_grid[ind_nearest[i]]
+            # We do this approximation via a weighted sum
+            
+            # max_dist[u] is the k-th smallest dist of points in gd for pixel_grid[u]
+            max_dist = torch.stack([normdiff[u, ind_nearest2[u,kmax-1]] for u in range(pixel_grid.shape[0])])
+            #coeff = torch.stack([torch.stack([max_dist[u] - normdiff[u, ind_nearest2[u, v]] for v in range(kmax)]) for u in range(pixel_grid.shape[0])])
+            coeff = torch.stack([torch.stack([normdiff[u, ind_nearest2[u, kmax - 1 - v]] for v in range(kmax)]) for u in range(pixel_grid.shape[0])])
+            coeff = coeff/torch.sum(coeff, 1).unsqueeze(1)
+            gd = torch.sum(pixel_grid[ind_nearest2] * coeff.unsqueeze(2).repeat(1, 1, 2), 1)
+            
+            #gd = torch.mean(pixel_grid[ind_nearest], 1)
 
         if self.__output == 'bitmap':
             return (deformed_intensities(gd, self.__bitmap, self.__extent), )
