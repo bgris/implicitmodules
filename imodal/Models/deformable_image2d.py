@@ -1,8 +1,9 @@
 import torch
+import copy
 
 from imodal.Models import DeformablePoints
 from imodal.DeformationModules import SilentLandmarks
-from imodal.Utilities import deformed_intensities, AABB, load_greyscale_image, pixels2points
+from imodal.Utilities import deformed_intensities, AABB, load_greyscale_image, pixels2points, grid2vec, vec2grid, points2pixels
 
 
 class DeformableImage(DeformablePoints):
@@ -106,23 +107,42 @@ class DeformableImage(DeformablePoints):
             # We project pixel_grid on gd ie for each i, find ind_nearest[i] so that gd[ind_nearest[i]]
             # is the point of gd the closest to pixel_grid[i]
             normdiff = torch.sum((gd.unsqueeze(0).transpose(1, 2) - pixel_grid.unsqueeze(2))**2, dim=1)
-            kmax = 3
+            kmax = 1
             _, ind_nearest2 = torch.topk(normdiff, k=kmax, dim=1, largest=False)
             #ind_nearest = torch.argmin(normdiff, dim=1, keepdim=True)
             
             
             # We use this to approximate \varphi^{-1} (pixel_grid) because gd(t=0) = pixel_grid so 
             #  \varphi^{-1} (pixel_grid[i]) = pixel_grid[ind_nearest[i]]
-            # We do this approximation via a weighted sum
+            diff = torch.zeros(*self.__shape, 2, 2)
+            step = torch.norm(pixel_grid[0] - pixel_grid[1])
+            index = points2pixels(pixel_grid, self.__shape, self.__extent,toindices=True)
+            grid_gd = vec2grid(gd, *self.__shape)
+            grid_pixel_grid = vec2grid(pixel_grid, *self.__shape)
+
+            # derivate of 1st and 2nd component wrt 1st component
+            # On the grid it corresponds to compare grid[i,j] with grid[i,j+1]
+            diff[:, :-1, 0, 0] = (grid_gd[0][:, 1:] - grid_gd[0][:, :-1])/step
+            diff[:, :-1, 1, 0] = (grid_gd[1][:, 1:] - grid_gd[1][:, :-1])/step
+
+
+            # derivate of 1st and 2nd component wrt 1st component
+            # On the grid it corresponds to compare grid[i,j] with grid[i+1,j]
+            diff[:-1, :, 0, 1] = (grid_gd[0][1:, :] - grid_gd[0][:-1, :])/step
+            diff[:-1, :, 1, 1] = (grid_gd[1][1::, :] - grid_gd[1][:-1, :])/step
             
-            # max_dist[u] is the k-th smallest dist of points in gd for pixel_grid[u]
-            max_dist = torch.stack([normdiff[u, ind_nearest2[u,kmax-1]] for u in range(pixel_grid.shape[0])])
-            #coeff = torch.stack([torch.stack([max_dist[u] - normdiff[u, ind_nearest2[u, v]] for v in range(kmax)]) for u in range(pixel_grid.shape[0])])
-            coeff = torch.stack([torch.stack([normdiff[u, ind_nearest2[u, kmax - 1 - v]] for v in range(kmax)]) for u in range(pixel_grid.shape[0])])
-            coeff = coeff/torch.sum(coeff, 1).unsqueeze(1)
-            gd = torch.sum(pixel_grid[ind_nearest2] * coeff.unsqueeze(2).repeat(1, 1, 2), 1)
+            diff_inv = torch.inverse(diff[1:-1, 1:-1, :, :])
             
-            #gd = torch.mean(pixel_grid[ind_nearest], 1)
+            gridpoints_inv_tmp = pixel_grid[ind_nearest2].squeeze()
+            grid_gridpoints_inv_tmp = vec2grid(gridpoints_inv_tmp, *self.__shape)
+            closest_gd = gd[ind_nearest2].squeeze()
+            grid_closest_gd = vec2grid(closest_gd, *self.__shape)
+            correction_grid_inv = torch.einsum('ijkl,lij->ijk', diff_inv, torch.stack(grid_pixel_grid)[:,1:-1, 1:-1] - torch.stack(grid_closest_gd)[:,1:-1, 1:-1])
+            grid_inv = torch.stack(copy.deepcopy(grid_gridpoints_inv_tmp))
+            grid_inv[:, 1:-1, 1:-1] = grid_inv[:, 1:-1, 1:-1] + correction_grid_inv.permute([2, 0, 1])
+            
+            gd = grid2vec(*grid_inv)
+            
 
         if self.__output == 'bitmap':
             return (deformed_intensities(gd, self.__bitmap, self.__extent), )
