@@ -172,7 +172,7 @@ model.to_device(device)
 # Fitting using Torch LBFGS optimizer.
 #
 
-shoot_solver = 'euler'
+shoot_solver = 'rk4'
 shoot_it = 10
 
 costs = {}
@@ -293,7 +293,7 @@ def generate_images(table, trans, outputfilename):
     print("Computing trajectories...")
     for index in indices[1:]:
         print("{}, t={}".format(index, t[index]))
-        deformed = compute_intermediate_deformed(index, incontrols[:4*index], t[index])
+        deformed = compute_intermediate_deformed(index, incontrols[:index], t[index])
 
         trajectory.append(deformed)
 
