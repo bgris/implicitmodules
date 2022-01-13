@@ -16,13 +16,15 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('..'))
-sys.path.append("../implicitmodules/torch/")
+sys.path.append("../imodal/")
+
+from sphinx_gallery.sorting import ExplicitOrder, FileNameSortKey
 
 
 # -- Project information -----------------------------------------------------
 
-project = 'ImplicitModules'
-copyright = '2020, C. G. L. T.'
+project = 'IMODAL'
+copyright = '2021, C. G. L. T.'
 author = 'C. G. L. T.'
 
 # The short X.Y version
@@ -58,10 +60,15 @@ from sphinx_gallery.sorting import FileNameSortKey
 sphinx_gallery_conf = {
     # path to your examples scripts
     'examples_dirs': ["../examples", "../tutorials"],
+    # 'examples_dirs': ["../tutorials"],
     # path where to save gallery generated examples
     'gallery_dirs': ["./_auto_examples", "./_auto_tutorials"],
-    'within_subsection_order': FileNameSortKey
+    # 'gallery_dirs': ["./_auto_tutorials"],
+    # ),
+    # 'within_subsection_order': FileNameSortKey
+    # 'filename_pattern': "plot_sheared_bunny.py"
 }
+
 
 # Add any paths that contain templates here, relative to this directory.
 # templates_path = ['_templates']
@@ -123,7 +130,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'implicitModulesdoc'
+htmlhelp_basename = 'imodaldoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -150,7 +157,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'implicitModules.tex', 'implicitModules Documentation',
+    (master_doc, 'imodal.tex', 'IMODAL Documentation',
      'C. , G., L., T.', 'manual'),
 ]
 
@@ -160,7 +167,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'implicitmodules', 'implicitModules Documentation',
+    (master_doc, 'imodal', 'IMODAL Documentation',
      [author], 1)
 ]
 
@@ -171,8 +178,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'implicitModules', 'implicitModules Documentation',
-     author, 'implicitModules', 'One line description of project.',
+    (master_doc, 'imodal', 'IMODAL Documentation',
+     author, 'imodal', 'One line description of project.',
      'Miscellaneous'),
 ]
 
