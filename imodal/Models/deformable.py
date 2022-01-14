@@ -13,7 +13,6 @@ from imodal.DeformationModules import SilentBase, CompoundModule, DeformationGri
 from imodal.Manifolds import Landmarks
 from imodal.MultiShape import MultiShapeHamiltonian, MultiShape
 
-
 class Deformable:
     def __init__(self):
         pass
@@ -360,6 +359,20 @@ def deformables_compute_deformed_multishape(deformables, multishape, constraints
     #TODO backward
     #forward_silent_modules = copy.deepcopy(silent_modules)
     #print(forward_silent_modules)
+    
+    # if deformable is an image, we need to compute the deformed grid
+    #TODO: for the moment only if image is at first place in deformable list
+    #if isinstance(deformables[0], imodal.Models.DeformableImage):
+    if multishape.backgroundtype=='dense':
+        grid_pts_deformed = torch.empty([labels.shape[0], multishape.modules[0].dim])
+        for i, mod in enumerate(multishape.modules[:-1]):
+            grid_pts_deformed[labels==i] = mod[0].manifold.gd
+        
+        i = len(multishape.modules) -1
+        
+        grid_pts_deformed[labels==i] = multishape.modules[i][-1].manifold.gd          
+    
+    
     if shoot_backward:
         # Backward shooting is needed
         #TODO: for the moment only one deformable which is an image
@@ -426,7 +439,11 @@ def deformables_compute_deformed_multishape(deformables, multishape, constraints
             deformed.append(deformable._to_deformed(grid_pts_deformed_bk))
         else:
             #deformed.append(deformable._to_deformed(deformable.silent_module.manifold.gd))
-            deformed.append(deformable._to_deformed(forward_silent_module.manifold.gd))
+            #if isinstance(deformables, imodal.Models.DeformableImage):
+            if multishape.backgroundtype=='dense':
+                deformed.append(deformable._to_deformed(grid_pts_deformed))
+            else:
+                deformed.append(deformable._to_deformed(forward_silent_module.manifold.gd))
 
     return deformed
 
