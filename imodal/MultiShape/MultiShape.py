@@ -37,6 +37,19 @@ class MultiShapeModules:
         
     lam = property(__get_lam, fill_lam)
     
+    def __get_controls(self):
+        #return [m.controls for m in self.__modules]
+        # flattened controls to be able to use them in shooting with intermediates
+        return [c for m in self.__modules for c in m.controls]
+
+    def fill_controls(self, controls):
+        for i in range(len(controls)):
+            self.__modules[i].fill_controls(controls[i])
+
+
+    controls = property(__get_controls, fill_controls)
+    
+    
     @property
     def sigma_background(self):
         return self.__sigma_background
