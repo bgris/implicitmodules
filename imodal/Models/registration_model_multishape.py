@@ -13,8 +13,9 @@ class RegistrationModelMultishape(BaseModel):
     def __init__(self, boundaries, deformables, deformation_modules, attachments, sigma_background, fit_gd=None, lam=1., precompute_callback=None, other_parameters=None, constraints=None, backgroundtype=None):
         
         """
+        boundaries is a list of N boundaries, one for each shape
         deformation_modules is a list of N lists of modules, one for each shape
-        deformables is a list of lists ????? deformables. The first N correspond to the N shapes, the first element of each list is the boundary
+        deformables is a list of lists P deformables. 
         
         """
         
